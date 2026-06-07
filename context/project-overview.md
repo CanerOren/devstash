@@ -499,6 +499,13 @@ Stripe integration: `stripeCustomerId` + `stripeSubscriptionId` stored on `User`
 - Clean typography, generous whitespace, subtle borders/shadows
 - Desktop-first; sidebar becomes bottom drawer on mobile
 
+### Screenshots
+
+Refer to the screenshots below as base for the dashboard UI. It does not have to be exact. Use it as a reference.:
+
+- @context/screenshots/dashboard-ui-main.png
+- @context/screenshots/dashboard-ui-drawer.png
+
 ### Micro-interactions
 - Smooth slide-in drawer for item open/create
 - Hover states on all cards
