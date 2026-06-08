@@ -56,6 +56,57 @@ async function main() {
     );
   }
 
+  // 4. Fetch and display the seeded demo user with their collections, items, and tags.
+  const demo = await prisma.user.findUnique({
+    where: { email: "demo@devstash.io" },
+    include: {
+      collections: {
+        orderBy: { name: "asc" },
+        include: {
+          items: {
+            include: {
+              item: {
+                include: {
+                  itemType: { select: { name: true } },
+                  tags: { include: { tag: { select: { name: true } } } },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!demo) {
+    throw new Error(
+      'Demo user (demo@devstash.io) not found. Run "npm run db:seed".',
+    );
+  }
+
+  console.log(
+    `\n👤 Demo user: ${demo.name} <${demo.email}> (isPro=${demo.isPro})`,
+  );
+  console.log(`📁 Collections (${demo.collections.length}):`);
+
+  let totalItems = 0;
+  for (const collection of demo.collections) {
+    console.log(
+      `\n   ▸ ${collection.name} — ${collection.description ?? ""} (${collection.items.length} items)`,
+    );
+    for (const { item } of collection.items) {
+      totalItems += 1;
+      const tags = item.tags.map((t) => `#${t.tag.name}`).join(" ");
+      console.log(
+        `      • [${item.itemType.name.padEnd(7)}] ${item.title}${tags ? `  ${tags}` : ""}`,
+      );
+    }
+  }
+
+  console.log(
+    `\n📦 Total: ${demo.collections.length} collections, ${totalItems} items.`,
+  );
+
   console.log("\n✅ Database test passed.");
 }
 
