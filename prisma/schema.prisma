@@ -1,0 +1,183 @@
+// DevStash Prisma schema
+// Prisma 7 — provider "prisma-client", client generated to src/generated/prisma.
+// Datasource URL is configured in prisma.config.ts (not here), per Prisma 7.
+// learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── NextAuth ────────────────────────────────────────────────────────────────
+
+model User {
+  id                   String    @id @default(cuid())
+  name                 String?
+  email                String    @unique
+  emailVerified        DateTime?
+  image                String?
+  password             String? // bcrypt hashed; null for OAuth-only users
+  isPro                Boolean   @default(false)
+  stripeCustomerId     String?   @unique
+  stripeSubscriptionId String?   @unique
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  accounts    Account[]
+  sessions    Session[]
+  items       Item[]
+  collections Collection[]
+  itemTypes   ItemType[]
+  tags        Tag[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── Core Domain ─────────────────────────────────────────────────────────────
+
+enum ContentType {
+  TEXT // snippet, prompt, note, command
+  FILE // file, image
+  URL // link
+}
+
+model ItemType {
+  id       String  @id @default(cuid())
+  name     String // "snippet" | "prompt" | "note" | "command" | "file" | "image" | "link"
+  icon     String // Lucide icon name e.g. "Code", "Sparkles", "Terminal"
+  color    String // Hex e.g. "#3b82f6"
+  isSystem Boolean @default(false)
+  userId   String? // null for system types; set for user-created custom types
+
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items Item[]
+
+  @@unique([name, userId]) // unique names per user (and for system types)
+  @@index([userId])
+}
+
+model Item {
+  id          String      @id @default(cuid())
+  title       String
+  contentType ContentType
+  content     String? // text content; null for FILE types
+  fileUrl     String? // Cloudflare R2 public/signed URL; null for TEXT/URL types
+  fileName    String? // original upload filename
+  fileSize    Int? // bytes
+  url         String? // for URL/link types only
+  description String?
+  language    String? // e.g. "typescript", "python", "bash" — for syntax highlighting
+  isFavorite  Boolean     @default(false)
+  isPinned    Boolean     @default(false)
+  lastUsedAt  DateTime? // updated on item open/copy — powers "Recently Used"
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  userId     String
+  itemTypeId String
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itemType    ItemType         @relation(fields: [itemTypeId], references: [id])
+  collections ItemCollection[]
+  tags        ItemTag[]
+
+  @@index([userId])
+  @@index([itemTypeId])
+  @@index([userId, createdAt]) // dashboard "Recent" list
+  @@index([userId, lastUsedAt]) // "Recently Used"
+  @@index([userId, isPinned]) // pinned items
+  @@index([userId, isFavorite]) // favorite items
+}
+
+model Collection {
+  id            String   @id @default(cuid())
+  name          String // e.g. "React Patterns", "Context Files"
+  description   String?
+  isFavorite    Boolean  @default(false)
+  defaultTypeId String? // suggested ItemType for new items added to this collection
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  userId String
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ItemCollection[]
+
+  @@index([userId])
+}
+
+model ItemCollection {
+  itemId       String
+  collectionId String
+  addedAt      DateTime @default(now())
+
+  item       Item       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, collectionId])
+  @@index([collectionId]) // reverse lookup: items in a collection
+}
+
+model Tag {
+  id     String @id @default(cuid())
+  name   String
+  userId String
+
+  user  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ItemTag[]
+
+  @@unique([name, userId])
+  @@index([userId])
+}
+
+model ItemTag {
+  itemId String
+  tagId  String
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, tagId])
+  @@index([tagId]) // reverse lookup: items with a tag
+}
