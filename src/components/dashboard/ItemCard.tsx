@@ -1,12 +1,12 @@
 import { createElement } from "react";
 import { Pin, Star } from "lucide-react";
 
-import type { Item, ItemType } from "@/lib/mock-data";
+import type { DashboardItem } from "@/lib/db/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 
-// Formats an ISO date (e.g. "2026-01-15") as "Jan 15".
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
+// Formats a date as "Jan 15".
+function formatDate(date: Date): string {
+  return date.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
   });
@@ -14,13 +14,8 @@ function formatDate(iso: string): string {
 
 // A horizontal item row used in the Pinned and Recent lists. The left border is
 // tinted with the item type's color (per the project UI rules).
-export function ItemCard({
-  item,
-  itemType,
-}: {
-  item: Item;
-  itemType: ItemType;
-}) {
+export function ItemCard({ item }: { item: DashboardItem }) {
+  const itemType = item.type;
   return (
     <div
       className="group flex items-start gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/40"
