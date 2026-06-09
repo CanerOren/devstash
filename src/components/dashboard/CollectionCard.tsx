@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { MoreHorizontal, Star } from "lucide-react";
 
-import type { Collection, ItemType } from "@/lib/mock-data";
+import type { DashboardCollection } from "@/lib/db/collections";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 
 // A collection card for the dashboard grid. The top border is tinted with the
@@ -9,13 +9,10 @@ import { getTypeIcon } from "@/components/dashboard/type-icons";
 // for each item type present in the collection.
 export function CollectionCard({
   collection,
-  types,
-  primaryColor,
 }: {
-  collection: Collection;
-  types: ItemType[];
-  primaryColor: string;
+  collection: DashboardCollection;
 }) {
+  const { types, primaryColor } = collection;
   return (
     <Link
       href={`/collections/${collection.id}`}

@@ -1,21 +1,35 @@
 import Link from "next/link";
 import { FolderHeart, FolderOpen, LayoutGrid, Star } from "lucide-react";
 
-import { collections, items, itemTypes } from "@/lib/mock-data";
+import { items, itemTypes } from "@/lib/mock-data";
+import {
+  getCollectionStats,
+  getDashboardCollections,
+} from "@/lib/db/collections";
 import { CollectionCard } from "@/components/dashboard/CollectionCard";
 import { ItemCard } from "@/components/dashboard/ItemCard";
 import { StatCard } from "@/components/dashboard/StatCard";
 
-// Lookup map: item-type id → ItemType, for resolving items/collections to types.
+// Reads live per-user data from the database, so render on each request rather
+// than prerendering at build time. (Becomes implicit once auth reads cookies.)
+export const dynamic = "force-dynamic";
+
+// Lookup map: item-type id → ItemType, for resolving items to types.
 const typeById = new Map(itemTypes.map((type) => [type.id, type]));
 
 // Dashboard home — main content area (Phase 3).
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  // Collections come from the database; items are still mock data for now.
+  const [collections, collectionStats] = await Promise.all([
+    getDashboardCollections(6),
+    getCollectionStats(),
+  ]);
+
   const stats = [
     { label: "Items", value: items.length, icon: LayoutGrid, color: "#3b82f6" },
     {
       label: "Collections",
-      value: collections.length,
+      value: collectionStats.total,
       icon: FolderOpen,
       color: "#10b981",
     },
@@ -27,7 +41,7 @@ export default function DashboardPage() {
     },
     {
       label: "Favorite Collections",
-      value: collections.filter((c) => c.isFavorite).length,
+      value: collectionStats.favorites,
       icon: FolderHeart,
       color: "#ec4899",
     },
@@ -67,20 +81,9 @@ export default function DashboardPage() {
           </Link>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {collections.map((collection) => {
-            const types = collection.itemTypeIds
-              .map((id) => typeById.get(id))
-              .filter((type): type is NonNullable<typeof type> => Boolean(type));
-            const primaryColor = types[0]?.color ?? "var(--border)";
-            return (
-              <CollectionCard
-                key={collection.id}
-                collection={collection}
-                types={types}
-                primaryColor={primaryColor}
-              />
-            );
-          })}
+          {collections.map((collection) => (
+            <CollectionCard key={collection.id} collection={collection} />
+          ))}
         </div>
       </section>
 
