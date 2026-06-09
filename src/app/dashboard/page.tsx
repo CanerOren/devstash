@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { FolderHeart, FolderOpen, LayoutGrid, Star } from "lucide-react";
 
-import { items, itemTypes } from "@/lib/mock-data";
 import {
   getCollectionStats,
   getDashboardCollections,
 } from "@/lib/db/collections";
+import {
+  getItemStats,
+  getPinnedItems,
+  getRecentItems,
+} from "@/lib/db/items";
 import { CollectionCard } from "@/components/dashboard/CollectionCard";
 import { ItemCard } from "@/components/dashboard/ItemCard";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -14,19 +18,30 @@ import { StatCard } from "@/components/dashboard/StatCard";
 // than prerendering at build time. (Becomes implicit once auth reads cookies.)
 export const dynamic = "force-dynamic";
 
-// Lookup map: item-type id → ItemType, for resolving items to types.
-const typeById = new Map(itemTypes.map((type) => [type.id, type]));
-
 // Dashboard home — main content area (Phase 3).
 export default async function DashboardPage() {
-  // Collections come from the database; items are still mock data for now.
-  const [collections, collectionStats] = await Promise.all([
+  // Collections and items both come from the database.
+  const [
+    collections,
+    collectionStats,
+    itemStats,
+    pinnedItems,
+    recentItems,
+  ] = await Promise.all([
     getDashboardCollections(6),
     getCollectionStats(),
+    getItemStats(),
+    getPinnedItems(),
+    getRecentItems(10),
   ]);
 
   const stats = [
-    { label: "Items", value: items.length, icon: LayoutGrid, color: "#3b82f6" },
+    {
+      label: "Items",
+      value: itemStats.total,
+      icon: LayoutGrid,
+      color: "#3b82f6",
+    },
     {
       label: "Collections",
       value: collectionStats.total,
@@ -35,7 +50,7 @@ export default async function DashboardPage() {
     },
     {
       label: "Favorite Items",
-      value: items.filter((i) => i.isFavorite).length,
+      value: itemStats.favorites,
       icon: Star,
       color: "#f59e0b",
     },
@@ -46,11 +61,6 @@ export default async function DashboardPage() {
       color: "#ec4899",
     },
   ];
-
-  const pinnedItems = items.filter((i) => i.isPinned);
-  const recentItems = [...items]
-    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-    .slice(0, 10);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -92,13 +102,9 @@ export default async function DashboardPage() {
         <section className="space-y-3">
           <h2 className="text-lg font-semibold">Pinned</h2>
           <div className="space-y-3">
-            {pinnedItems.map((item) => {
-              const itemType = typeById.get(item.itemTypeId);
-              if (!itemType) return null;
-              return (
-                <ItemCard key={item.id} item={item} itemType={itemType} />
-              );
-            })}
+            {pinnedItems.map((item) => (
+              <ItemCard key={item.id} item={item} />
+            ))}
           </div>
         </section>
       )}
@@ -107,11 +113,9 @@ export default async function DashboardPage() {
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Recent</h2>
         <div className="space-y-3">
-          {recentItems.map((item) => {
-            const itemType = typeById.get(item.itemTypeId);
-            if (!itemType) return null;
-            return <ItemCard key={item.id} item={item} itemType={itemType} />;
-          })}
+          {recentItems.map((item) => (
+            <ItemCard key={item.id} item={item} />
+          ))}
         </div>
       </section>
     </div>
