@@ -30,10 +30,33 @@ export interface ItemStats {
   favorites: number;
 }
 
+// A system item type row for the sidebar nav, with the user's count for it.
+export interface SidebarItemType {
+  id: string;
+  name: string; // raw type name, e.g. "snippet"
+  label: string; // plural display label, e.g. "Snippets"
+  icon: string; // Lucide icon name, e.g. "Code"
+  color: string; // hex, e.g. "#3b82f6"
+  count: number; // items of this type owned by the user
+  href: string; // e.g. "/items/snippets"
+}
+
 // Capitalize a raw type name for display, e.g. "snippet" → "Snippet".
 function toLabel(name: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
+
+// Canonical sidebar order for the system item types (matches the project
+// overview's type table). ItemType has no timestamp, so we sort explicitly.
+const TYPE_ORDER = [
+  "snippet",
+  "prompt",
+  "command",
+  "note",
+  "file",
+  "image",
+  "link",
+];
 
 // Shared include shape so pinned/recent rows carry their type and tag names.
 const itemInclude = {
@@ -108,4 +131,34 @@ export async function getItemStats(): Promise<ItemStats> {
   ]);
 
   return { total, favorites };
+}
+
+// The system item types for the sidebar, in canonical order, each with the
+// demo user's item count for that type (0 when the user has none).
+export async function getSidebarItemTypes(): Promise<SidebarItemType[]> {
+  const [types, counts] = await Promise.all([
+    prisma.itemType.findMany({
+      where: { isSystem: true },
+      select: { id: true, name: true, icon: true, color: true },
+    }),
+    prisma.item.groupBy({
+      by: ["itemTypeId"],
+      where: { user: { email: DEMO_USER_EMAIL } },
+      _count: true,
+    }),
+  ]);
+
+  const countByTypeId = new Map(counts.map((c) => [c.itemTypeId, c._count]));
+
+  return types
+    .map((type) => ({
+      id: type.id,
+      name: type.name,
+      label: `${toLabel(type.name)}s`,
+      icon: type.icon,
+      color: type.color,
+      count: countByTypeId.get(type.id) ?? 0,
+      href: `/items/${type.name}s`,
+    }))
+    .sort((a, b) => TYPE_ORDER.indexOf(a.name) - TYPE_ORDER.indexOf(b.name));
 }

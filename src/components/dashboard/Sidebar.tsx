@@ -3,17 +3,33 @@
 import { cn } from "@/lib/utils";
 import { SidebarContent } from "@/components/dashboard/SidebarContent";
 import { useSidebar } from "@/components/dashboard/sidebar-context";
+import type { SidebarItemType } from "@/lib/db/items";
+import type { SidebarCollection } from "@/lib/db/collections";
+import type { SidebarUser } from "@/lib/db/user";
 
 // Dashboard sidebar. On desktop (md+) it's a column that collapses to a narrow
 // icon rail; on mobile it's an overlay drawer. Both share SidebarContent.
-export function Sidebar() {
+export function Sidebar({
+  itemTypes,
+  collections,
+  user,
+}: {
+  itemTypes: SidebarItemType[];
+  collections: SidebarCollection[];
+  user: SidebarUser;
+}) {
   const { mobileOpen, closeMobile } = useSidebar();
 
   return (
     <>
       {/* Desktop column — width is driven by SidebarContent (rail vs full) */}
       <aside className="hidden shrink-0 border-r border-sidebar-border md:block">
-        <SidebarContent variant="desktop" />
+        <SidebarContent
+          variant="desktop"
+          itemTypes={itemTypes}
+          collections={collections}
+          user={user}
+        />
       </aside>
 
       {/* Mobile backdrop */}
@@ -33,7 +49,12 @@ export function Sidebar() {
           mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <SidebarContent variant="mobile" />
+        <SidebarContent
+          variant="mobile"
+          itemTypes={itemTypes}
+          collections={collections}
+          user={user}
+        />
       </aside>
     </>
   );

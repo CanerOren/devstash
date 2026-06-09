@@ -53,6 +53,7 @@ type SeedItem = {
 type SeedCollection = {
   name: string;
   description: string;
+  isFavorite?: boolean;
   items: SeedItem[];
 };
 
@@ -60,6 +61,7 @@ const SEED_COLLECTIONS: SeedCollection[] = [
   {
     name: "React Patterns",
     description: "Reusable React patterns and hooks",
+    isFavorite: true,
     items: [
       {
         type: "snippet",
@@ -252,6 +254,7 @@ CMD ["npm", "start"]`,
   {
     name: "Terminal Commands",
     description: "Useful shell commands for everyday development",
+    isFavorite: true,
     items: [
       {
         type: "command",
@@ -396,6 +399,7 @@ async function seedDemoData() {
       data: {
         name: collection.name,
         description: collection.description,
+        isFavorite: collection.isFavorite ?? false,
         userId: user.id,
       },
     });

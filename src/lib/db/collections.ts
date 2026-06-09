@@ -29,6 +29,16 @@ export interface CollectionStats {
   favorites: number;
 }
 
+// A collection row for the sidebar nav. `primaryColor` is the most-used item
+// type's color, shown as a circle next to non-favorite (recent) collections.
+export interface SidebarCollection {
+  id: string;
+  name: string;
+  isFavorite: boolean;
+  itemCount: number;
+  primaryColor: string;
+}
+
 // Capitalize a raw type name for display, e.g. "snippet" → "Snippet".
 function toLabel(name: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
@@ -92,6 +102,53 @@ export async function getDashboardCollections(
       itemCount: collection.items.length,
       types,
       primaryColor: types[0]?.color ?? "var(--border)",
+    };
+  });
+}
+
+// All of the demo user's collections for the sidebar (most recent first), each
+// with its item count and the color of its most-common item type.
+export async function getSidebarCollections(): Promise<SidebarCollection[]> {
+  const collections = await prisma.collection.findMany({
+    where: { user: { email: DEMO_USER_EMAIL } },
+    orderBy: { createdAt: "desc" },
+    include: {
+      items: {
+        select: {
+          item: { select: { itemType: { select: { id: true, color: true } } } },
+        },
+      },
+    },
+  });
+
+  return collections.map((collection) => {
+    // Find the most-common item type's color for the recents circle.
+    const frequency = new Map<string, number>();
+    const colorById = new Map<string, string>();
+
+    for (const { item } of collection.items) {
+      const { id, color } = item.itemType;
+      colorById.set(id, color);
+      frequency.set(id, (frequency.get(id) ?? 0) + 1);
+    }
+
+    let primaryId: string | null = null;
+    let max = 0;
+    for (const [id, freq] of frequency) {
+      if (freq > max) {
+        max = freq;
+        primaryId = id;
+      }
+    }
+
+    return {
+      id: collection.id,
+      name: collection.name,
+      isFavorite: collection.isFavorite,
+      itemCount: collection.items.length,
+      primaryColor: primaryId
+        ? (colorById.get(primaryId) as string)
+        : "var(--muted-foreground)",
     };
   });
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   ChevronDown,
-  Folder,
+  LayoutGrid,
   PanelLeftClose,
   PanelLeftOpen,
   Settings,
@@ -14,9 +14,21 @@ import {
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { collections, currentUser, itemTypes } from "@/lib/mock-data";
+import type { SidebarItemType } from "@/lib/db/items";
+import type { SidebarCollection } from "@/lib/db/collections";
+import type { SidebarUser } from "@/lib/db/user";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { useSidebar } from "@/components/dashboard/sidebar-context";
+
+// Initials for the avatar, derived from the user's name (or email as fallback).
+function initialsOf(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 // A collapsible section with a header that toggles its body open/closed.
 // Only used in the full (expanded) sidebar — the rail renders flat icon rows.
@@ -59,21 +71,30 @@ function rowClass(isRail: boolean) {
 // mobile drawer. Renders a narrow icon rail when collapsed on desktop.
 export function SidebarContent({
   variant,
+  itemTypes,
+  collections,
+  user,
 }: {
   variant: "desktop" | "mobile";
+  itemTypes: SidebarItemType[];
+  collections: SidebarCollection[];
+  user: SidebarUser;
 }) {
   const { collapsed, toggleCollapsed, closeMobile } = useSidebar();
   const isRail = variant === "desktop" && collapsed;
 
+  // Name is optional in the DB, so fall back to the email for display.
+  const displayName = user.name ?? user.email;
+
   const favoriteCollections = collections.filter((c) => c.isFavorite);
   const recentCollections = collections.filter((c) => !c.isFavorite);
 
-  const typeRow = (type: (typeof itemTypes)[number]) => {
+  const typeRow = (type: SidebarItemType) => {
     const Icon = getTypeIcon(type.icon);
     return (
       <Link
         key={type.id}
-        href={`/items/${type.label.toLowerCase()}`}
+        href={type.href}
         onClick={closeMobile}
         title={isRail ? type.label : undefined}
         className={rowClass(isRail)}
@@ -90,10 +111,7 @@ export function SidebarContent({
     );
   };
 
-  const collectionRow = (
-    col: (typeof collections)[number],
-    favorite: boolean,
-  ) => (
+  const collectionRow = (col: SidebarCollection, favorite: boolean) => (
     <Link
       key={col.id}
       href={`/collections/${col.id}`}
@@ -104,7 +122,12 @@ export function SidebarContent({
       {favorite ? (
         <Star className="size-4 shrink-0 fill-amber-400 text-amber-400" />
       ) : (
-        <Folder className="size-4 shrink-0 text-muted-foreground" />
+        // Recent collections show a circle in their most-used type's color.
+        <span
+          aria-hidden
+          className="size-3 shrink-0 rounded-full"
+          style={{ backgroundColor: col.primaryColor }}
+        />
       )}
       {!isRail && (
         <>
@@ -112,6 +135,19 @@ export function SidebarContent({
           <span className="text-xs text-muted-foreground">{col.itemCount}</span>
         </>
       )}
+    </Link>
+  );
+
+  // "View all collections" link shown under the collections list.
+  const viewAllCollections = (
+    <Link
+      href="/collections"
+      onClick={closeMobile}
+      title={isRail ? "View all collections" : undefined}
+      className={cn(rowClass(isRail), "text-muted-foreground")}
+    >
+      <LayoutGrid className="size-4 shrink-0" />
+      {!isRail && <span className="flex-1 truncate">View all collections</span>}
     </Link>
   );
 
@@ -161,6 +197,7 @@ export function SidebarContent({
             <div className="my-2 border-t border-sidebar-border" />
             {favoriteCollections.map((col) => collectionRow(col, true))}
             {recentCollections.map((col) => collectionRow(col, false))}
+            {viewAllCollections}
           </>
         ) : (
           <>
@@ -183,6 +220,7 @@ export function SidebarContent({
                   {recentCollections.map((col) => collectionRow(col, false))}
                 </>
               )}
+              <div className="mt-1">{viewAllCollections}</div>
             </NavGroup>
           </>
         )}
@@ -198,23 +236,18 @@ export function SidebarContent({
         <Link
           href="/settings"
           onClick={closeMobile}
-          title={isRail ? currentUser.name : undefined}
+          title={isRail ? displayName : undefined}
           aria-label={isRail ? "Settings" : undefined}
           className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sm font-medium text-sidebar-accent-foreground"
         >
-          {currentUser.name
-            .split(" ")
-            .map((part) => part[0])
-            .join("")
-            .slice(0, 2)
-            .toUpperCase()}
+          {initialsOf(displayName)}
         </Link>
         {!isRail && (
           <>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{currentUser.name}</p>
+              <p className="truncate text-sm font-medium">{displayName}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {currentUser.email}
+                {user.email}
               </p>
             </div>
             <Link
