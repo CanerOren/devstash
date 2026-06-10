@@ -4,7 +4,7 @@ import { MoreHorizontal, Star } from "lucide-react";
 import type { DashboardCollection } from "@/lib/db/collections";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 
-// A collection card for the dashboard grid. The top border is tinted with the
+// A collection card for the dashboard grid. The left border is tinted with the
 // collection's primary (most-common) item-type color; the footer shows an icon
 // for each item type present in the collection.
 export function CollectionCard({
@@ -18,7 +18,7 @@ export function CollectionCard({
       href={`/collections/${collection.id}`}
       className="group relative flex flex-col rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/40"
       // Primary type color is data-driven, so the accent must be inline.
-      style={{ borderTopColor: primaryColor, borderTopWidth: 2 }}
+      style={{ borderLeftColor: primaryColor, borderLeftWidth: 2 }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5">
