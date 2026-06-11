@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/prisma";
-
-// No auth yet — the dashboard reads the seeded demo user. Once NextAuth is
-// wired up this constant gets replaced by the session user's id.
-const DEMO_USER_EMAIL = "demo@devstash.io";
+import { DEMO_USER_EMAIL } from "@/lib/db/helpers";
 
 // View model for the sidebar user area.
 export interface SidebarUser {

@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/prisma";
-
-// No auth yet — the dashboard reads the seeded demo user's data. Once NextAuth
-// is wired up this constant gets replaced by the session user's id.
-const DEMO_USER_EMAIL = "demo@devstash.io";
+import { DEMO_USER_EMAIL, toLabel } from "@/lib/db/helpers";
 
 // A distinct item type present in a collection, used for the card footer icons.
 export interface CollectionCardType {
@@ -37,11 +34,6 @@ export interface SidebarCollection {
   isFavorite: boolean;
   itemCount: number;
   primaryColor: string;
-}
-
-// Capitalize a raw type name for display, e.g. "snippet" → "Snippet".
-function toLabel(name: string): string {
-  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 // Fetches the demo user's most recent collections for the dashboard grid. Each
@@ -112,6 +104,7 @@ export async function getSidebarCollections(): Promise<SidebarCollection[]> {
   const collections = await prisma.collection.findMany({
     where: { user: { email: DEMO_USER_EMAIL } },
     orderBy: { createdAt: "desc" },
+    take: 20,
     include: {
       items: {
         select: {
@@ -147,7 +140,7 @@ export async function getSidebarCollections(): Promise<SidebarCollection[]> {
       isFavorite: collection.isFavorite,
       itemCount: collection.items.length,
       primaryColor: primaryId
-        ? (colorById.get(primaryId) as string)
+        ? (colorById.get(primaryId) ?? "var(--muted-foreground)")
         : "var(--muted-foreground)",
     };
   });
