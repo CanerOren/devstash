@@ -9,8 +9,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-// Maps the `icon` name stored on an ItemType (see src/lib/mock-data.ts) to its
-// Lucide component. Falls back to File for any unknown name.
+// Maps the `icon` name stored on an ItemType to its Lucide component.
+// Falls back to File for any unknown name.
 const TYPE_ICONS: Record<string, LucideIcon> = {
   Code,
   Sparkles,
