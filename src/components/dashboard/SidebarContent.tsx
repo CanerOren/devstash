@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { SidebarItemType } from "@/lib/db/items";
 import type { SidebarCollection } from "@/lib/db/collections";
@@ -91,6 +92,8 @@ export function SidebarContent({
 
   const typeRow = (type: SidebarItemType) => {
     const Icon = getTypeIcon(type.icon);
+    // File and Image are Pro-only types (see project overview's type table).
+    const isPro = type.name === "file" || type.name === "image";
     return (
       <Link
         key={type.id}
@@ -104,6 +107,14 @@ export function SidebarContent({
         {!isRail && (
           <>
             <span className="flex-1 truncate">{type.label}</span>
+            {isPro && (
+              <Badge
+                variant="secondary"
+                className="h-4 px-1.5 text-[0.6rem] font-semibold tracking-wider text-muted-foreground"
+              >
+                PRO
+              </Badge>
+            )}
             <span className="text-xs text-muted-foreground">{type.count}</span>
           </>
         )}
