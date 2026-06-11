@@ -1,8 +1,5 @@
 import { prisma } from "@/lib/prisma";
-
-// No auth yet — the dashboard reads the seeded demo user's data. Once NextAuth
-// is wired up this constant gets replaced by the session user's id.
-const DEMO_USER_EMAIL = "demo@devstash.io";
+import { DEMO_USER_EMAIL, toLabel } from "@/lib/db/helpers";
 
 // The item type an item belongs to, used for the card's icon/border.
 export interface DashboardItemType {
@@ -39,11 +36,6 @@ export interface SidebarItemType {
   color: string; // hex, e.g. "#3b82f6"
   count: number; // items of this type owned by the user
   href: string; // e.g. "/items/snippets"
-}
-
-// Capitalize a raw type name for display, e.g. "snippet" → "Snippet".
-function toLabel(name: string): string {
-  return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
 // Canonical sidebar order for the system item types (matches the project
@@ -104,6 +96,7 @@ export async function getPinnedItems(): Promise<DashboardItem[]> {
   const items = await prisma.item.findMany({
     where: { user: { email: DEMO_USER_EMAIL }, isPinned: true },
     orderBy: { createdAt: "desc" },
+    take: 20,
     include: itemInclude,
   });
 
