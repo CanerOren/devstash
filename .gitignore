@@ -44,3 +44,7 @@ next-env.d.ts
 /memory/
 
 /src/generated/prisma
+
+# runtime artifacts
+/logs/
+/.playwright-mcp/
