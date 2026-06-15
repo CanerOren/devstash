@@ -1,8 +1,22 @@
 // Shared helpers for the db fetchers.
 
-// No auth yet — the dashboard reads the seeded demo user's data. Once NextAuth
-// is wired up this gets replaced by the session user's id (a single seam here).
-export const DEMO_USER_EMAIL = "demo@devstash.io";
+import { cache } from "react";
+import { auth } from "@/auth";
+
+// Resolves the authenticated user's id from the NextAuth session. The dashboard
+// fetchers all scope their queries to this id. Only called from auth-gated
+// routes, so a session is expected — throw if it's somehow missing.
+//
+// Wrapped in React's `cache()` so the underlying `auth()` (JWT decode) runs at
+// most once per request even though many fetchers call this in parallel.
+export const requireUserId = cache(async (): Promise<string> => {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) {
+    throw new Error("requireUserId called without an authenticated session");
+  }
+  return userId;
+});
 
 // Capitalize a raw type name for display, e.g. "snippet" → "Snippet".
 export function toLabel(name: string): string {

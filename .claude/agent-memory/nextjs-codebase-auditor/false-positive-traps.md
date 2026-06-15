@@ -9,7 +9,7 @@ metadata:
 
 1. **`.env` exposure** — `.env*` is on line 34 of `.gitignore` as a glob. Always confirmed. Never flag.
 
-2. **Missing auth on DB fetchers** — `DEMO_USER_EMAIL` constant in `src/lib/db/*.ts` is intentional. Auth is not yet implemented. Do not flag hardcoded demo email as a security issue.
+2. **DB fetchers + auth** — Auth IS implemented (NextAuth v5, auth phase 3). `src/lib/db/*.ts` fetchers scope to the session user via `requireUserId()` (`src/lib/db/helpers.ts`), which reads `auth()` and throws if there's no session; `/dashboard` is gated by `src/proxy.ts`. Do NOT flag these as "missing auth," and do NOT flag the `throw` as unhandled. The old `DEMO_USER_EMAIL` constant has been removed.
 
 3. **`any` in `src/generated/prisma/`** — Prisma 7 auto-generates these types. They are gitignored and not hand-written. ESLint also ignores this directory (`src/generated/**` in `eslint.config.mjs`).
 

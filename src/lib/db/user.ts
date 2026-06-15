@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { DEMO_USER_EMAIL } from "@/lib/db/helpers";
+import { requireUserId } from "@/lib/db/helpers";
 
 // View model for the sidebar user area.
 export interface SidebarUser {
@@ -8,10 +8,14 @@ export interface SidebarUser {
   image: string | null;
 }
 
-// The current (demo) user for the sidebar user area.
+// The currently authenticated user for the sidebar user area. Loads fresh
+// name/email/image from the DB (by the session user id) so updates are
+// reflected. Only called on the auth-gated /dashboard routes.
 export async function getCurrentUser(): Promise<SidebarUser> {
+  const userId = await requireUserId();
+
   return prisma.user.findUniqueOrThrow({
-    where: { email: DEMO_USER_EMAIL },
+    where: { id: userId },
     select: { name: true, email: true, image: true },
   });
 }
