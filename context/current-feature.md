@@ -1,19 +1,32 @@
-# Current Feature
+# Current Feature: Auth Phase 2 — Credentials (Email/Password) Provider
 
-<!-- Feature name and short description -->
+Add email/password authentication with registration on top of the existing NextAuth v5 + GitHub OAuth setup (spec: `context/features/auth-phase-2-spec .md`).
 
 ## Status
 
-<!-- Not Started | In Progress | Completed -->
-
+In Progress
 
 ## Goals
 
-<!-- Goals and requirements -->
+- Add a **Credentials** provider for email/password sign-in using the split-config pattern:
+  - `auth.config.ts`: Credentials provider with an `authorize: () => null` placeholder (edge-safe, no bcrypt).
+  - `auth.ts`: override the Credentials provider with real bcrypt validation against the DB.
+- Ensure the `User.password` field exists (already in schema — add via migration only if missing).
+- Use `bcryptjs` (already installed) for hashing/verification.
+- Create a registration API route `POST /api/auth/register`:
+  - Accepts `name`, `email`, `password`, `confirmPassword`.
+  - Validates passwords match.
+  - Checks for an existing user (reject duplicates).
+  - Hashes the password with bcryptjs and creates the user.
+  - Returns a success/error response.
 
 ## Notes
 
-<!-- Any extra notes -->
+- **Split pattern detail:** the edge-safe `auth.config.ts` must not import bcrypt or Prisma; keep the `authorize` placeholder there and override it in the Node-side `auth.ts`.
+- Validate request input with Zod (per coding-standards) in the register route.
+- `User.password` is already defined in the Prisma schema (bcrypt-hashed, nullable for OAuth-only users) — verify before adding any migration.
+- Testing: register via curl, then sign in at `/api/auth/signin` with email/password and confirm redirect to `/dashboard`; verify GitHub OAuth still works.
+- Reference: Credentials provider — https://authjs.dev/getting-started/authentication/credentials
 
 ## History
 

@@ -1,5 +1,7 @@
 import NextAuth from "next-auth";
+import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import authConfig from "@/auth.config";
 
@@ -7,9 +9,47 @@ import authConfig from "@/auth.config";
 // the JWT session strategy (required when splitting config for edge runtimes).
 // Import this throughout the app (server components, actions, route handlers) —
 // everywhere except the proxy, which must stay edge-compatible.
+//
+// The Credentials placeholder from auth.config.ts (authorize → null) is replaced
+// here with the real implementation: look up the user by email and verify the
+// bcrypt-hashed password. OAuth-only users have a null password and are rejected.
+const credentialsProvider = Credentials({
+  credentials: {
+    email: { label: "Email", type: "email" },
+    password: { label: "Password", type: "password" },
+  },
+  async authorize(credentials) {
+    const email = credentials?.email;
+    const password = credentials?.password;
+    if (typeof email !== "string" || typeof password !== "string") {
+      return null;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+    });
+    if (!user?.password) {
+      return null;
+    }
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) {
+      return null;
+    }
+
+    return { id: user.id, name: user.name, email: user.email, image: user.image };
+  },
+});
+
 export const { auth, handlers, signIn, signOut } = NextAuth({
+  ...authConfig,
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
+  providers: authConfig.providers.map((provider) =>
+    typeof provider !== "function" && provider.id === "credentials"
+      ? credentialsProvider
+      : provider,
+  ),
   callbacks: {
     jwt({ token, user }) {
       if (user) {
@@ -24,5 +64,4 @@ export const { auth, handlers, signIn, signOut } = NextAuth({
       return session;
     },
   },
-  ...authConfig,
 });
