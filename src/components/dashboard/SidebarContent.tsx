@@ -2,34 +2,35 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import {
   ChevronDown,
   LayoutGrid,
+  LogOut,
   PanelLeftClose,
   PanelLeftOpen,
-  Settings,
   Star,
+  User,
   X,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { UserAvatar } from "@/components/user/UserAvatar";
 import type { SidebarItemType } from "@/lib/db/items";
 import type { SidebarCollection } from "@/lib/db/collections";
 import type { SidebarUser } from "@/lib/db/user";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { useSidebar } from "@/components/dashboard/sidebar-context";
-
-// Initials for the avatar, derived from the user's name (or email as fallback).
-function initialsOf(name: string): string {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 // A collapsible section with a header that toggles its body open/closed.
 // Only used in the full (expanded) sidebar — the rail renders flat icon rows.
@@ -237,40 +238,55 @@ export function SidebarContent({
         )}
       </nav>
 
-      {/* User area */}
-      <div
-        className={cn(
-          "flex items-center border-t border-sidebar-border p-3",
-          isRail ? "justify-center" : "gap-3",
-        )}
-      >
-        <Link
-          href="/settings"
-          onClick={closeMobile}
-          title={isRail ? displayName : undefined}
-          aria-label={isRail ? "Settings" : undefined}
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-sidebar-accent text-sm font-medium text-sidebar-accent-foreground"
-        >
-          {initialsOf(displayName)}
-        </Link>
-        {!isRail && (
-          <>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{displayName}</p>
-              <p className="truncate text-xs text-muted-foreground">
-                {user.email}
-              </p>
-            </div>
-            <Link
-              href="/settings"
-              onClick={closeMobile}
-              aria-label="Settings"
-              className="text-muted-foreground hover:text-foreground"
+      {/* User area — avatar opens an upward menu with Profile + Sign out. */}
+      <div className="border-t border-sidebar-border p-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              title={isRail ? displayName : undefined}
+              aria-label="Open user menu"
+              className={cn(
+                "flex w-full items-center rounded-md p-1 text-left hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                isRail ? "justify-center" : "gap-3",
+              )}
             >
-              <Settings className="size-4" />
-            </Link>
-          </>
-        )}
+              <UserAvatar
+                name={displayName}
+                image={user.image}
+                className="size-9"
+              />
+              {!isRail && (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{displayName}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {user.email}
+                  </p>
+                </div>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent side="top" align="start" className="w-56">
+            <DropdownMenuLabel className="truncate">
+              {displayName}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/profile" onClick={closeMobile}>
+                <User />
+                Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              variant="destructive"
+              onSelect={() => signOut({ callbackUrl: "/sign-in" })}
+            >
+              <LogOut />
+              Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </div>
   );

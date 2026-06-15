@@ -12,6 +12,11 @@ import type { NextAuthConfig } from "next-auth";
 // overrides this provider with the working implementation. The `credentials`
 // field shape is kept here so the default /api/auth/signin form still renders.
 export default {
+  // Route Auth.js's sign-in flow (and error redirects) to our custom page
+  // instead of the default /api/auth/signin form.
+  pages: {
+    signIn: "/sign-in",
+  },
   providers: [
     GitHub,
     Credentials({

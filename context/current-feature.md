@@ -1,19 +1,38 @@
 # Current Feature
 
-<!-- Feature name and short description -->
+Auth Phase 3 — Custom Auth UI (Sign In, Register, Sign Out) + sidebar user area
 
 ## Status
 
-<!-- Not Started | In Progress | Completed -->
-
+In Progress — branch `feature/auth-phase-3`. Implementation complete; build/lint/tsc pass. Pending manual browser verification (sign-in, GitHub, sign-out, register flows).
 
 ## Goals
 
-<!-- Goals and requirements -->
+- **Sign In page (`/sign-in`)** — custom page replacing the NextAuth default:
+  - Email + password input fields (credentials provider)
+  - "Sign in with GitHub" button (GitHub OAuth)
+  - Link to the register page
+  - Form validation + inline error display
+- **Register page (`/register`)** — custom page:
+  - Name, email, password, confirm password fields
+  - Form validation (passwords match, email format)
+  - Submits to existing `POST /api/auth/register`
+  - Redirect to sign-in on success
+- **Sidebar bottom user area**:
+  - Show user avatar (GitHub `image`, else initials fallback)
+  - Show user name
+  - Avatar click opens a dropdown/up menu with a "Sign out" link
+  - Clicking the icon navigates to `/profile`
+- **Reusable Avatar component** handling both image and initials-fallback cases.
 
 ## Notes
 
-<!-- Any extra notes -->
+- Spec: `context/features/auth-phase-3-spec.md`.
+- Avatar logic: use `User.image` if present (GitHub); otherwise generate initials from name (e.g. "Brad Traversy" → "BT"). An `initialsOf` helper already exists from the sidebar work (Phase: Stats & sidebar from DB) — reuse/extend it.
+- Auth backend is already wired (Phase 1: GitHub OAuth, Phase 2: credentials + `/api/auth/register`). This phase is UI only — no new providers or migrations expected.
+- The sidebar already renders the DB user in its bottom area (`SidebarContent.tsx`); this extends it with the avatar dropdown + sign-out + `/profile` link. Sidebar is a client component, so sign-out uses NextAuth's client `signOut`.
+- Keep pages server-rendered where possible; forms need client interactivity (`'use client'` only where required).
+- Manual testing flow (no test runner): see spec's Testing section — `/sign-in` GitHub + email/password, avatar render, dropdown, sign out, `/register` → redirect.
 
 ## History
 

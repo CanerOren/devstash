@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { DEMO_USER_EMAIL, toLabel } from "@/lib/db/helpers";
+import { requireUserId, toLabel } from "@/lib/db/helpers";
 
 // A distinct item type present in a collection, used for the card footer icons.
 export interface CollectionCardType {
@@ -36,15 +36,16 @@ export interface SidebarCollection {
   primaryColor: string;
 }
 
-// Fetches the demo user's most recent collections for the dashboard grid. Each
-// collection is returned with its item count, the distinct item types it
+// Fetches the current user's most recent collections for the dashboard grid.
+// Each collection is returned with its item count, the distinct item types it
 // contains (ordered by frequency so the most-common type is first), and the
 // most-common type's color for the card's border tint.
 export async function getDashboardCollections(
   limit = 6,
 ): Promise<DashboardCollection[]> {
+  const userId = await requireUserId();
   const collections = await prisma.collection.findMany({
-    where: { user: { email: DEMO_USER_EMAIL } },
+    where: { userId },
     orderBy: { createdAt: "desc" },
     take: limit,
     include: {
@@ -98,11 +99,12 @@ export async function getDashboardCollections(
   });
 }
 
-// All of the demo user's collections for the sidebar (most recent first), each
-// with its item count and the color of its most-common item type.
+// All of the current user's collections for the sidebar (most recent first),
+// each with its item count and the color of its most-common item type.
 export async function getSidebarCollections(): Promise<SidebarCollection[]> {
+  const userId = await requireUserId();
   const collections = await prisma.collection.findMany({
-    where: { user: { email: DEMO_USER_EMAIL } },
+    where: { userId },
     orderBy: { createdAt: "desc" },
     take: 20,
     include: {
@@ -148,7 +150,8 @@ export async function getSidebarCollections(): Promise<SidebarCollection[]> {
 
 // Aggregate collection counts for the dashboard stat cards.
 export async function getCollectionStats(): Promise<CollectionStats> {
-  const where = { user: { email: DEMO_USER_EMAIL } };
+  const userId = await requireUserId();
+  const where = { userId };
   const [total, favorites] = await Promise.all([
     prisma.collection.count({ where }),
     prisma.collection.count({ where: { ...where, isFavorite: true } }),

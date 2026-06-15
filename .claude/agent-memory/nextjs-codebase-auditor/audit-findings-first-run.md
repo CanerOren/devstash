@@ -19,7 +19,7 @@ metadata:
 
 6. **`toLabel` function is duplicated** — identical implementation in both `src/lib/db/items.ts` (line 45) and `src/lib/db/collections.ts` (line 43). Should live in a shared `src/lib/utils.ts` or `src/lib/db/helpers.ts`.
 
-7. **`DEMO_USER_EMAIL` constant is duplicated** — defined in `src/lib/db/items.ts` (line 5), `src/lib/db/collections.ts` (line 5), and `src/lib/db/user.ts` (line 5). Should be a single exported constant.
+7. **`DEMO_USER_EMAIL` constant is duplicated** — ~~defined in `src/lib/db/items.ts`, `collections.ts`, and `user.ts`.~~ RESOLVED: first deduped into `src/lib/db/helpers.ts` (DB fetcher quick wins), then removed entirely when auth was wired (auth phase 3) — fetchers now use `requireUserId()`.
 
 **Why:** These are the confirmed non-false-positive issues from the June 2026 full audit.
 **How to apply:** In future audits, check these specific locations first as recurring hotspots.

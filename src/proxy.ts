@@ -10,8 +10,10 @@ export const proxy = auth((req) => {
   const isOnDashboard = req.nextUrl.pathname.startsWith("/dashboard");
 
   if (isOnDashboard && !isLoggedIn) {
-    // Send unauthenticated users to NextAuth's default sign-in page.
-    const signInUrl = new URL("/api/auth/signin", req.nextUrl.origin);
+    // Send unauthenticated users to our custom sign-in page, preserving where
+    // they were headed so we can return them there after a successful sign-in.
+    const signInUrl = new URL("/sign-in", req.nextUrl.origin);
+    signInUrl.searchParams.set("callbackUrl", req.nextUrl.pathname);
     return Response.redirect(signInUrl);
   }
 });
