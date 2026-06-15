@@ -1,32 +1,19 @@
-# Current Feature: Auth Phase 2 — Credentials (Email/Password) Provider
+# Current Feature
 
-Add email/password authentication with registration on top of the existing NextAuth v5 + GitHub OAuth setup (spec: `context/features/auth-phase-2-spec .md`).
+<!-- Feature name and short description -->
 
 ## Status
 
-In Progress
+<!-- Not Started | In Progress | Completed -->
+
 
 ## Goals
 
-- Add a **Credentials** provider for email/password sign-in using the split-config pattern:
-  - `auth.config.ts`: Credentials provider with an `authorize: () => null` placeholder (edge-safe, no bcrypt).
-  - `auth.ts`: override the Credentials provider with real bcrypt validation against the DB.
-- Ensure the `User.password` field exists (already in schema — add via migration only if missing).
-- Use `bcryptjs` (already installed) for hashing/verification.
-- Create a registration API route `POST /api/auth/register`:
-  - Accepts `name`, `email`, `password`, `confirmPassword`.
-  - Validates passwords match.
-  - Checks for an existing user (reject duplicates).
-  - Hashes the password with bcryptjs and creates the user.
-  - Returns a success/error response.
+<!-- Goals and requirements -->
 
 ## Notes
 
-- **Split pattern detail:** the edge-safe `auth.config.ts` must not import bcrypt or Prisma; keep the `authorize` placeholder there and override it in the Node-side `auth.ts`.
-- Validate request input with Zod (per coding-standards) in the register route.
-- `User.password` is already defined in the Prisma schema (bcrypt-hashed, nullable for OAuth-only users) — verify before adding any migration.
-- Testing: register via curl, then sign in at `/api/auth/signin` with email/password and confirm redirect to `/dashboard`; verify GitHub OAuth still works.
-- Reference: Credentials provider — https://authjs.dev/getting-started/authentication/credentials
+<!-- Any extra notes -->
 
 ## History
 
@@ -44,3 +31,4 @@ In Progress
 - **2026-06-11** — Pro badge in sidebar (branch `feature/add-pro-badge-sidebar`, spec in `context/features/add-pro-badge-sidebar.md`). Added a subtle **"PRO"** badge next to the **Files** and **Images** item types in the dashboard sidebar (the two Pro-only types per the project overview's type table). Installed the shadcn/ui **Badge** component (`npx shadcn add badge` → `src/components/ui/badge.tsx`, a `cva`-based variant `<span>`). In `SidebarContent.tsx`'s `typeRow`, derived `const isPro = type.name === "file" || type.name === "image"` and rendered `<Badge variant="secondary">PRO</Badge>` between the type label and the count, with compact classes (`h-4 px-1.5 text-[0.6rem] font-semibold tracking-wider text-muted-foreground`) to keep it small and muted. The badge lives inside the existing `{!isRail && …}` block, so it shows only in the expanded sidebar — never in the collapsed icon rail. Purely presentational: no data-layer change, since `SidebarItemType.name` already carried the raw type name. `npx tsc --noEmit`, `npm run lint`, and `npm run build` all pass. (Completed)
 - **2026-06-11** — DB fetcher quick wins (branch `feature/db-fetcher-quick-wins`). Low-risk cleanups to the `src/lib/db/*` fetchers surfaced by a code-scanner audit. **Capped two unbounded queries**: `getPinnedItems()` (`items.ts`) and `getSidebarCollections()` (`collections.ts`) each gained `take: 20` (the sidebar one previously loaded ALL of a user's collections — with nested `items → itemType` — on every navigation; the pinned one ran unbounded on every dashboard render). **Removed an unsafe type cast** in `getSidebarCollections`: `colorById.get(primaryId) as string` → `colorById.get(primaryId) ?? "var(--muted-foreground)"` (type-safe, behavior-identical, no `any`-style escape per coding-standards). **De-duplicated two shared values** into a new `src/lib/db/helpers.ts`: `DEMO_USER_EMAIL` (was copy-pasted in `items.ts`, `collections.ts`, `user.ts` — now a single auth seam for the future NextAuth swap) and the `toLabel()` capitalizer (was identical in `items.ts` + `collections.ts`), both imported by the consuming modules. No schema/index/migration changes (verified the dev/prod Neon branches stay in sync), no UI change. Two behavioral changes only — the `take: 20` caps, both safe limits well above current seeded data (5 collections / 0 pinned items). Out-of-scope audit items (decomposing `SidebarContent.tsx`, moving the seed password to env, `test-db.ts` over-fetch) intentionally left for later. `npx tsc --noEmit`, `npm run lint`, and `npm run build` all pass. (Completed)
 - **2026-06-15** — Auth Phase 1: NextAuth v5 + GitHub OAuth (branch `feature/auth-phase-1`, spec in `context/features/auth-phase-1-spec.md`). Installed `next-auth@5.0.0-beta` + `@auth/prisma-adapter` and wired up Auth.js with the **split-config pattern** for edge compatibility. `src/auth.config.ts` holds the edge-safe providers-only config (GitHub, reading `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET` from env, typed `satisfies NextAuthConfig`); `src/auth.ts` is the full Node config that spreads it and adds `PrismaAdapter(prisma)` + `session: { strategy: "jwt" }`, with `jwt`/`session` callbacks threading `user.id` onto the session. `src/app/api/auth/[...nextauth]/route.ts` re-exports the `GET`/`POST` handlers; `src/proxy.ts` (Next.js 16 middleware, `export const proxy = auth(...)`, `matcher: ["/dashboard/:path*"]`) initializes NextAuth with only the edge-safe config and redirects unauthenticated `/dashboard/*` requests to NextAuth's default sign-in page (`/api/auth/signin`); `src/types/next-auth.d.ts` augments `Session.user`/`JWT` with `id`. Also added MCP/agent tooling (`.mcp.json`, `.claude/agents/code-scanner.md` + agent-memory), a Neon MCP usage section in `CLAUDE.md` (always target the `development` branch, never touch `production`), and gitignored `logs/` + `.playwright-mcp/`. No unit tests — the feature is config/wiring with no standalone testable logic and no test runner is configured (verify via browser: `/dashboard` → sign-in → GitHub → back to `/dashboard`). `npm run build` passes (`/api/auth/[...nextauth]` route + Proxy middleware both register). Left out of this commit for later handling: the phase-2/3 specs. (Completed)
+- **2026-06-15** — Auth Phase 2: Credentials (email/password) provider + registration (branch `feature/auth-phase-2`, spec in `context/features/auth-phase-2-spec .md`). Added email/password sign-in on top of the Phase 1 GitHub OAuth setup, keeping the **split-config pattern**. `src/auth.config.ts` now declares a **Credentials placeholder** alongside GitHub — it imports the edge-safe `next-auth/providers/credentials` (no bcrypt/Prisma), defines the `email`/`password` field shape so the default `/api/auth/signin` form renders, and uses `authorize: () => null`. `src/auth.ts` builds the **real** Credentials provider (bcrypt + Prisma): it looks up the user by lower-cased email via `prisma.user.findUnique`, rejects OAuth-only users (`user.password` is null), and `bcrypt.compare`s the password, returning `{ id, name, email, image }` on success. The override is wired by mapping over `authConfig.providers` and swapping the entry whose `provider.id === "credentials"` (GitHub is a function reference, so `typeof !== "function"` skips it), so it replaces only Credentials and leaves GitHub untouched; `providers` is set after the `...authConfig` spread so it wins. Added the registration API route `POST /api/auth/register` (`src/app/api/auth/register/route.ts`): a Zod `registerSchema` validates `name`/`email`/`password`/`confirmPassword` (trim, lower-case email, 8–72 char password) with a `.refine` enforcing passwords match; the handler rejects duplicate emails (409), `bcrypt.hash(password, 12)` (matching the seed's cost), creates the user with `select: { id, name, email }` (never returns the hash), and returns the project's `{ success, data?, error? }` shape (201 on success, 400 invalid, 409 duplicate, 500 on error). `User.password` already existed in the schema (`String?`, nullable for OAuth-only) so **no migration** was needed. Installed `zod` (was missing despite coding-standards requiring it for input validation). Verified via build/lint/tsc; runtime curl + sign-in testing handed to the user. `npx tsc --noEmit`, `npm run lint`, and `npm run build` all pass (`/api/auth/register` registers as a route). (Completed)
