@@ -21,6 +21,8 @@ export function SignInForm() {
   const verificationRequired = searchParams.get("verify") !== "0";
   // The verify-email route redirects back here after a click on the link.
   const justVerified = searchParams.get("verified") === "1";
+  // ResetPasswordForm sends users here with ?reset=1 after a successful reset.
+  const justReset = searchParams.get("reset") === "1";
   const verifyError = searchParams.get("verifyError");
   // NextAuth redirects back here with ?error=... when an OAuth sign-in fails.
   const oauthError = searchParams.get("error");
@@ -98,7 +100,12 @@ export function SignInForm() {
           Email verified. You can now sign in.
         </p>
       )}
-      {justRegistered && !justVerified && !error && (
+      {justReset && !error && (
+        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-500">
+          Password reset. You can now sign in with your new password.
+        </p>
+      )}
+      {justRegistered && !justVerified && !justReset && !error && (
         <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-500">
           {verificationRequired
             ? "Account created. Check your email for a verification link before signing in."
@@ -144,9 +151,17 @@ export function SignInForm() {
         </div>
 
         <div className="space-y-1.5">
-          <label htmlFor="password" className="text-sm font-medium">
-            Password
-          </label>
+          <div className="flex items-center justify-between">
+            <label htmlFor="password" className="text-sm font-medium">
+              Password
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <Input
             id="password"
             name="password"

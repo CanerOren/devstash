@@ -55,6 +55,44 @@ export async function sendVerificationEmail({
   }
 }
 
+// Sends the "reset your password" message. Returns true when Resend accepted
+// the send, false otherwise (the caller still returns a generic success to avoid
+// account enumeration). Never throws.
+export async function sendPasswordResetEmail({
+  to,
+  name,
+  url,
+}: VerificationEmailArgs): Promise<boolean> {
+  const greeting = name ? `Hi ${name},` : "Hi,";
+
+  try {
+    const { error } = await resend.emails.send({
+      from: FROM,
+      to,
+      subject: "Reset your DevStash password",
+      text: [
+        greeting,
+        "",
+        "We received a request to reset your DevStash password. Open the link below to choose a new one:",
+        "",
+        url,
+        "",
+        "This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email — your password won't change.",
+      ].join("\n"),
+      html: passwordResetEmailHtml({ greeting, url }),
+    });
+
+    if (error) {
+      console.error("[email] Resend rejected password reset email:", error);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[email] failed to send password reset email:", err);
+    return false;
+  }
+}
+
 function verificationEmailHtml({ greeting, url }: { greeting: string; url: string }): string {
   return `
   <div style="font-family: ui-sans-serif, system-ui, sans-serif; max-width: 480px; margin: 0 auto; color: #0a0a0a;">
@@ -76,6 +114,31 @@ function verificationEmailHtml({ greeting, url }: { greeting: string; url: strin
     </p>
     <p style="font-size: 12px; line-height: 1.6; color: #737373;">
       This link expires in 24 hours. If you didn't create a DevStash account, you can safely ignore this email.
+    </p>
+  </div>`;
+}
+
+function passwordResetEmailHtml({ greeting, url }: { greeting: string; url: string }): string {
+  return `
+  <div style="font-family: ui-sans-serif, system-ui, sans-serif; max-width: 480px; margin: 0 auto; color: #0a0a0a;">
+    <h1 style="font-size: 20px; margin-bottom: 16px;">Reset your password</h1>
+    <p style="font-size: 14px; line-height: 1.6;">${greeting}</p>
+    <p style="font-size: 14px; line-height: 1.6;">
+      We received a request to reset your DevStash password. Click the button below to choose a new one.
+    </p>
+    <p style="margin: 24px 0;">
+      <a href="${url}"
+         style="display: inline-block; background: #0a0a0a; color: #ffffff; text-decoration: none;
+                padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600;">
+        Reset password
+      </a>
+    </p>
+    <p style="font-size: 12px; line-height: 1.6; color: #737373;">
+      Or paste this link into your browser:<br />
+      <a href="${url}" style="color: #2563eb;">${url}</a>
+    </p>
+    <p style="font-size: 12px; line-height: 1.6; color: #737373;">
+      This link expires in 1 hour. If you didn't request a password reset, you can safely ignore this email — your password won't change.
     </p>
   </div>`;
 }
