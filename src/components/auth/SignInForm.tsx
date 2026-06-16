@@ -16,6 +16,9 @@ export function SignInForm() {
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
   // After registering, RegisterForm sends users here with ?registered=1.
   const justRegistered = searchParams.get("registered") === "1";
+  // The verify-email route redirects back here after a click on the link.
+  const justVerified = searchParams.get("verified") === "1";
+  const verifyError = searchParams.get("verifyError");
   // NextAuth redirects back here with ?error=... when an OAuth sign-in fails.
   const oauthError = searchParams.get("error");
 
@@ -23,15 +26,30 @@ export function SignInForm() {
   const [password, setPassword] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // True once a sign-in attempt is blocked because the email isn't verified —
+  // unlocks the "resend verification email" affordance.
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendState, setResendState] = useState<"idle" | "sending" | "sent">("idle");
 
-  // Show the form's own (credentials) error if present, otherwise any OAuth
-  // error carried in the URL.
+  const verifyErrorMessage =
+    verifyError === "expired"
+      ? "That verification link has expired. Sign in to get a new one sent."
+      : verifyError === "invalid"
+        ? "That verification link is invalid or has already been used."
+        : null;
+
+  // Show the form's own (credentials) error if present, otherwise a verify-link
+  // error, otherwise any OAuth error carried in the URL.
   const error =
-    formError ?? (oauthError ? "Could not sign in with GitHub. Please try again." : null);
+    formError ??
+    verifyErrorMessage ??
+    (oauthError ? "Could not sign in with GitHub. Please try again." : null);
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
+    setNeedsVerification(false);
+    setResendState("idle");
     setPending(true);
 
     const result = await signIn("credentials", {
@@ -42,7 +60,12 @@ export function SignInForm() {
 
     if (!result || result.error) {
       setPending(false);
-      setFormError("Invalid email or password.");
+      if (result?.code === "unverified") {
+        setNeedsVerification(true);
+        setFormError("Please verify your email before signing in.");
+      } else {
+        setFormError("Invalid email or password.");
+      }
       return;
     }
 
@@ -51,17 +74,51 @@ export function SignInForm() {
     router.refresh();
   }
 
+  async function onResend() {
+    setResendState("sending");
+    try {
+      await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+    } catch {
+      // The endpoint intentionally returns a generic response; ignore failures.
+    }
+    setResendState("sent");
+  }
+
   return (
     <div className="space-y-4">
-      {justRegistered && !error && (
+      {justVerified && !error && (
         <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-500">
-          Account created. Please sign in.
+          Email verified. You can now sign in.
+        </p>
+      )}
+      {justRegistered && !justVerified && !error && (
+        <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-500">
+          Account created. Check your email for a verification link before signing in.
         </p>
       )}
       {error && (
-        <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
+        <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          <p>{error}</p>
+          {needsVerification &&
+            (resendState === "sent" ? (
+              <p className="text-muted-foreground">
+                Verification email sent. Check your inbox.
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={onResend}
+                disabled={resendState === "sending" || !email}
+                className="font-medium text-foreground underline-offset-4 hover:underline disabled:opacity-60"
+              >
+                {resendState === "sending" ? "Sending…" : "Resend verification email"}
+              </button>
+            ))}
+        </div>
       )}
 
       <form onSubmit={onSubmit} className="space-y-3">
