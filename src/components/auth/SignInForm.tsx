@@ -16,6 +16,9 @@ export function SignInForm() {
   const callbackUrl = searchParams.get("callbackUrl") ?? "/dashboard";
   // After registering, RegisterForm sends users here with ?registered=1.
   const justRegistered = searchParams.get("registered") === "1";
+  // ?verify=0 means verification is disabled — the account is ready to use, so
+  // skip the "check your email" wording.
+  const verificationRequired = searchParams.get("verify") !== "0";
   // The verify-email route redirects back here after a click on the link.
   const justVerified = searchParams.get("verified") === "1";
   const verifyError = searchParams.get("verifyError");
@@ -97,7 +100,9 @@ export function SignInForm() {
       )}
       {justRegistered && !justVerified && !error && (
         <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-500">
-          Account created. Check your email for a verification link before signing in.
+          {verificationRequired
+            ? "Account created. Check your email for a verification link before signing in."
+            : "Account created. You can now sign in."}
         </p>
       )}
       {error && (

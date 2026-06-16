@@ -42,7 +42,10 @@ export function RegisterForm() {
         return;
       }
 
-      router.push("/sign-in?registered=1");
+      // When verification is disabled, the account is usable immediately — tell
+      // sign-in not to show the "check your email" banner.
+      const verifyParam = data.data?.verificationRequired === false ? "&verify=0" : "";
+      router.push(`/sign-in?registered=1${verifyParam}`);
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {

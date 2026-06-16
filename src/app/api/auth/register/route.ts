@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { issueVerificationEmail } from "@/lib/auth/verification";
+import { issueVerificationEmail, isEmailVerificationEnabled } from "@/lib/auth/verification";
 
 // POST /api/auth/register — create a new email/password user.
 // Validates input, ensures passwords match, rejects duplicate emails, hashes the
@@ -44,20 +44,34 @@ export async function POST(request: Request) {
     }
 
     const passwordHash = await bcrypt.hash(password, 12);
+    const verificationEnabled = isEmailVerificationEnabled();
     const user = await prisma.user.create({
-      data: { name, email, password: passwordHash },
+      // When verification is disabled, mark the account verified at creation so
+      // the sign-in gate passes and no email is sent.
+      data: {
+        name,
+        email,
+        password: passwordHash,
+        emailVerified: verificationEnabled ? null : new Date(),
+      },
       select: { id: true, name: true, email: true },
     });
 
-    // Send the verification email. If it fails to send, the account still
-    // exists — the user can request a resend from the sign-in page.
-    const emailSent = await issueVerificationEmail({
-      origin: new URL(request.url).origin,
-      email: user.email,
-      name: user.name,
-    });
+    // Send the verification email only when verification is enabled. If it fails
+    // to send, the account still exists — the user can request a resend from the
+    // sign-in page.
+    const emailSent = verificationEnabled
+      ? await issueVerificationEmail({
+          origin: new URL(request.url).origin,
+          email: user.email,
+          name: user.name,
+        })
+      : true;
 
-    return NextResponse.json({ success: true, data: { ...user, emailSent } }, { status: 201 });
+    return NextResponse.json(
+      { success: true, data: { ...user, emailSent, verificationRequired: verificationEnabled } },
+      { status: 201 },
+    );
   } catch (error) {
     console.error("[register] failed to create user:", error);
     return NextResponse.json(

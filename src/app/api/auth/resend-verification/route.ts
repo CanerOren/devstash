@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { issueVerificationEmail } from "@/lib/auth/verification";
+import { issueVerificationEmail, isEmailVerificationEnabled } from "@/lib/auth/verification";
 
 // POST /api/auth/resend-verification — re-sends the verification email.
 // Always returns a generic success (never reveals whether the email exists or
@@ -23,6 +23,16 @@ export async function POST(request: Request) {
     }
 
     const { email } = parsed.data;
+
+    // When verification is disabled globally, there is nothing to resend — but
+    // still return the same generic success so the response is indistinguishable.
+    if (!isEmailVerificationEnabled()) {
+      return NextResponse.json({
+        success: true,
+        data: { message: "If that account exists and is unverified, a new link is on its way." },
+      });
+    }
+
     const user = await prisma.user.findUnique({ where: { email } });
 
     // Only send for a credentials user (has a password) who is not yet verified.

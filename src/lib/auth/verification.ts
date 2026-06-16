@@ -8,6 +8,16 @@ import { sendVerificationEmail } from "@/lib/email";
 
 export const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
+// Single switch for the whole email-verification system. Enabled by default;
+// set EMAIL_VERIFICATION_ENABLED="false" to turn it off (e.g. while Resend has
+// no verified sending domain, so non-owner addresses can't receive mail). When
+// off: registration skips the email and marks accounts verified immediately,
+// the sign-in gate is bypassed, and resend no-ops. Read everywhere through this
+// one helper so all touchpoints stay in sync.
+export function isEmailVerificationEnabled(): boolean {
+  return process.env.EMAIL_VERIFICATION_ENABLED !== "false";
+}
+
 // Creates a fresh verification token for an email, replacing any existing ones
 // for that address (so a resend invalidates the previous link). Returns the
 // raw token to embed in the verification URL.

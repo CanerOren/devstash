@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { isEmailVerificationEnabled } from "@/lib/auth/verification";
 import authConfig from "@/auth.config";
 
 // Thrown when credentials are valid but the email hasn't been verified yet.
@@ -45,9 +46,10 @@ const credentialsProvider = Credentials({
       return null;
     }
 
-    // Block sign-in until the email is verified. GitHub OAuth users never reach
-    // this provider, so they are unaffected.
-    if (!user.emailVerified) {
+    // Block sign-in until the email is verified, unless verification is disabled
+    // globally. GitHub OAuth users never reach this provider, so they are
+    // unaffected either way.
+    if (isEmailVerificationEnabled() && !user.emailVerified) {
       throw new EmailNotVerifiedError();
     }
 
