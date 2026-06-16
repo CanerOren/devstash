@@ -1,9 +1,17 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import authConfig from "@/auth.config";
+
+// Thrown when credentials are valid but the email hasn't been verified yet.
+// The `code` is surfaced to the client by signIn() so the UI can show a
+// "verify your email" message (with a resend option) instead of the generic
+// "invalid credentials" error. See SignInForm.
+class EmailNotVerifiedError extends CredentialsSignin {
+  code = "unverified";
+}
 
 // Full config: spreads the edge-safe providers and adds the Prisma adapter plus
 // the JWT session strategy (required when splitting config for edge runtimes).
@@ -35,6 +43,12 @@ const credentialsProvider = Credentials({
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       return null;
+    }
+
+    // Block sign-in until the email is verified. GitHub OAuth users never reach
+    // this provider, so they are unaffected.
+    if (!user.emailVerified) {
+      throw new EmailNotVerifiedError();
     }
 
     return { id: user.id, name: user.name, email: user.email, image: user.image };
