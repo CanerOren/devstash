@@ -5,11 +5,16 @@ import authConfig from "@/auth.config";
 // proxy can run on the edge. It still reads the JWT session to gate routes.
 const { auth } = NextAuth(authConfig);
 
+// Routes that require an authenticated session.
+const PROTECTED_PREFIXES = ["/dashboard", "/profile"];
+
 export const proxy = auth((req) => {
   const isLoggedIn = !!req.auth;
-  const isOnDashboard = req.nextUrl.pathname.startsWith("/dashboard");
+  const isProtected = PROTECTED_PREFIXES.some((prefix) =>
+    req.nextUrl.pathname.startsWith(prefix),
+  );
 
-  if (isOnDashboard && !isLoggedIn) {
+  if (isProtected && !isLoggedIn) {
     // Send unauthenticated users to our custom sign-in page, preserving where
     // they were headed so we can return them there after a successful sign-in.
     const signInUrl = new URL("/sign-in", req.nextUrl.origin);
@@ -19,5 +24,5 @@ export const proxy = auth((req) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/profile/:path*"],
 };
