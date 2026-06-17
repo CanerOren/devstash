@@ -1,16 +1,26 @@
-# Current Feature
+# Current Feature — Profile Page
 
 ## Status
 
-Not Started
+Complete
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- Create a protected profile page at the `/profile` route (require authentication)
+- Display user info: email, name, avatar (GitHub avatar or initials fallback), account creation date
+- Show usage stats: total items, total collections, and a breakdown by item type (snippets, prompts, commands, notes, files, images, links)
+- Add account actions:
+  - Change password — only for email/password users (hidden for GitHub OAuth-only users)
+  - Delete account — with a confirmation dialog to prevent accidental deletion
+- Follow existing codebase patterns for data fetching (server-side Prisma fetchers scoped to the session user) and components
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+- Avatar: reuse the existing `UserAvatar` component (GitHub `image` from OAuth, else initials from name/email)
+- "Change password" gating: show only when the user has a `password` set (email/password signup), not GitHub OAuth-only
+- Delete account must be behind a confirmation dialog (cascades remove the user's items/collections/tags/etc.)
+- Item-type breakdown counts each system type; reuse/extend existing stat fetchers (`getItemStats`, `getCollectionStats`, `groupBy` pattern already used for sidebar counts)
+- Route protection: `/profile` currently isn't covered by the proxy matcher (`/dashboard/:path*`) — ensure it requires auth
 
 ## History
 
