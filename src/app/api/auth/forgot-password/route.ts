@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { issuePasswordResetEmail } from "@/lib/auth/password-reset";
+import { checkRateLimit, getClientIp, tooManyRequestsResponse } from "@/lib/rate-limit";
 
 // POST /api/auth/forgot-password — starts the password-reset flow.
 // Always returns a generic success (never reveals whether the email exists or
@@ -16,6 +17,11 @@ const GENERIC_MESSAGE =
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = await checkRateLimit("forgotPassword", getClientIp(request));
+    if (!rateLimit.success) {
+      return tooManyRequestsResponse(rateLimit.reset);
+    }
+
     const body = await request.json().catch(() => null);
     const parsed = forgotPasswordSchema.safeParse(body);
     if (!parsed.success) {

@@ -68,6 +68,8 @@ export function SignInForm() {
       if (result?.code === "unverified") {
         setNeedsVerification(true);
         setFormError("Please verify your email before signing in.");
+      } else if (result?.code === "rate_limited") {
+        setFormError("Too many sign-in attempts. Please try again in a few minutes.");
       } else {
         setFormError("Invalid email or password.");
       }

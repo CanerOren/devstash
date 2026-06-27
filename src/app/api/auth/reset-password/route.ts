@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { emailFromResetIdentifier } from "@/lib/auth/password-reset";
+import { checkRateLimit, getClientIp, tooManyRequestsResponse } from "@/lib/rate-limit";
 
 // POST /api/auth/reset-password — completes the password-reset flow.
 // Validates the single-use token, sets a new bcrypt hash on the user, and
@@ -25,6 +26,11 @@ const resetPasswordSchema = z
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = await checkRateLimit("resetPassword", getClientIp(request));
+    if (!rateLimit.success) {
+      return tooManyRequestsResponse(rateLimit.reset);
+    }
+
     const body = await request.json().catch(() => null);
     const parsed = resetPasswordSchema.safeParse(body);
     if (!parsed.success) {
