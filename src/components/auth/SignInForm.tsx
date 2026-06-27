@@ -9,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { GitHubIcon } from "@/components/auth/GitHubIcon";
+import { signInWithGitHub } from "@/actions/auth";
 
 export function SignInForm() {
   const router = useRouter();
@@ -188,17 +189,21 @@ export function SignInForm() {
         <div className="h-px flex-1 bg-border" />
       </div>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="lg"
-        className="w-full"
-        disabled={pending}
-        onClick={() => signIn("github", { callbackUrl })}
-      >
-        <GitHubIcon />
-        Sign in with GitHub
-      </Button>
+      {/* Server-side sign-in: the action runs on the server and NextAuth owns
+          the redirect, avoiding the client-side redirect timing that needed a
+          second click. */}
+      <form action={signInWithGitHub}>
+        <Button
+          type="submit"
+          variant="outline"
+          size="lg"
+          className="w-full"
+          disabled={pending}
+        >
+          <GitHubIcon />
+          Sign in with GitHub
+        </Button>
+      </form>
 
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}

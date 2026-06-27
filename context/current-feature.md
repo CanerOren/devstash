@@ -1,16 +1,40 @@
 # Current Feature
 
+Fix GitHub OAuth Redirect Issue
+
 ## Status
 
-Not Started
+In Progress
 
 ## Goals
 
-<!-- Bullet points of what success looks like -->
+- GitHub sign-in works on the **first** click (no double-click, no bounce back to `/sign-in`)
+- Switch GitHub sign-in from client-side `signIn` (`next-auth/react`) to the server-side `signIn` from `@/auth` via a Server Action (recommended NextAuth v5 pattern)
+- Credentials (email/password) login stays exactly as-is
 
 ## Notes
 
-<!-- Additional context, constraints, or details from spec -->
+**Problem:** GitHub sign-in requires two clicks. First click authenticates (session created) but the redirect to `/dashboard` fails — page refreshes back to `/sign-in`. Second click works.
+
+**Root cause:** Client-side `signIn` from `next-auth/react` has unreliable redirect behavior in production.
+
+**Solution / changes required:**
+
+1. Create `src/actions/auth.ts`
+   - Export a `signInWithGitHub` server action
+   - Call `signIn("github", { redirectTo: "/dashboard" })` from `@/auth`
+2. Update `src/components/auth/SignInForm.tsx` (spec writes it as `sign-in-form.tsx`; actual file is `SignInForm.tsx`)
+   - Import `signInWithGitHub` from `@/actions/auth`
+   - Replace the GitHub `<Button onClick={...}>` with a `<form action={signInWithGitHub}>` containing a submit button
+   - Remove `isGitHubLoading` state and `handleGitHubSignIn` function
+   - Keep credentials login as-is (uses `redirect: false`, works fine)
+
+**Key details:**
+- Use `redirectTo` (NextAuth v5), not `callbackUrl` (v4)
+- No SessionProvider needed
+- Server action handles the redirect server-side, avoiding client-side timing issues
+
+**Verification:** Run `npm run build` (no `test` runner configured in this project), then test in production. Spec source: `context/fixes/github-auth-redirect-fix.md`.
 
 ## History
 
