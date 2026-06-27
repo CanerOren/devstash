@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { issueVerificationEmail, isEmailVerificationEnabled } from "@/lib/auth/verification";
+import { checkRateLimit, getClientIp, tooManyRequestsResponse } from "@/lib/rate-limit";
 
 // POST /api/auth/register — create a new email/password user.
 // Validates input, ensures passwords match, rejects duplicate emails, hashes the
@@ -24,6 +25,11 @@ const registerSchema = z
 
 export async function POST(request: Request) {
   try {
+    const rateLimit = await checkRateLimit("register", getClientIp(request));
+    if (!rateLimit.success) {
+      return tooManyRequestsResponse(rateLimit.reset);
+    }
+
     const body = await request.json().catch(() => null);
     const parsed = registerSchema.safeParse(body);
     if (!parsed.success) {

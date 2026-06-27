@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { issueVerificationEmail, isEmailVerificationEnabled } from "@/lib/auth/verification";
+import { checkRateLimit, getClientIp, tooManyRequestsResponse } from "@/lib/rate-limit";
 
 // POST /api/auth/resend-verification — re-sends the verification email.
 // Always returns a generic success (never reveals whether the email exists or
@@ -23,6 +24,13 @@ export async function POST(request: Request) {
     }
 
     const { email } = parsed.data;
+
+    // Keyed by IP + email so abuse of the send endpoint is throttled even when
+    // verification is disabled below. A 429 reveals nothing about the account.
+    const rateLimit = await checkRateLimit("resendVerification", `${getClientIp(request)}:${email}`);
+    if (!rateLimit.success) {
+      return tooManyRequestsResponse(rateLimit.reset);
+    }
 
     // When verification is disabled globally, there is nothing to resend — but
     // still return the same generic success so the response is indistinguishable.

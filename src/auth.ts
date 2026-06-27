@@ -4,6 +4,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { isEmailVerificationEnabled } from "@/lib/auth/verification";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import authConfig from "@/auth.config";
 
 // Thrown when credentials are valid but the email hasn't been verified yet.
@@ -12,6 +13,15 @@ import authConfig from "@/auth.config";
 // "invalid credentials" error. See SignInForm.
 class EmailNotVerifiedError extends CredentialsSignin {
   code = "unverified";
+}
+
+// Thrown when too many sign-in attempts come from the same IP + email. The
+// `code` lets SignInForm show a "try again later" message. The login route
+// (/api/auth/callback/credentials) is owned by NextAuth, so we rate-limit here
+// inside authorize — where we have both the email and the request headers —
+// rather than wrapping the route.
+class RateLimitedError extends CredentialsSignin {
+  code = "rate_limited";
 }
 
 // Full config: spreads the edge-safe providers and adds the Prisma adapter plus
@@ -27,11 +37,21 @@ const credentialsProvider = Credentials({
     email: { label: "Email", type: "email" },
     password: { label: "Password", type: "password" },
   },
-  async authorize(credentials) {
+  async authorize(credentials, request) {
     const email = credentials?.email;
     const password = credentials?.password;
     if (typeof email !== "string" || typeof password !== "string") {
       return null;
+    }
+
+    // Throttle brute-force / credential-stuffing by IP + email before touching
+    // the DB or bcrypt. Fails open if Upstash is unavailable.
+    const rateLimit = await checkRateLimit(
+      "login",
+      `${getClientIp(request)}:${email.toLowerCase()}`,
+    );
+    if (!rateLimit.success) {
+      throw new RateLimitedError();
     }
 
     const user = await prisma.user.findUnique({
