@@ -117,6 +117,50 @@ export async function getRecentItems(limit = 10): Promise<DashboardItem[]> {
   return items.map(toDashboardItem);
 }
 
+// Items of a single type, resolved from its plural URL slug, for the
+// /items/[type] list page.
+export interface ItemsByType {
+  type: DashboardItemType;
+  items: DashboardItem[];
+}
+
+// The current user's items of one system type, resolved from the plural URL
+// slug used in the sidebar links (e.g. "snippets" → the "snippet" type), most
+// recent first. Returns null when the slug doesn't match a system item type,
+// so the page can render a 404.
+export async function getItemsByType(
+  typeSlug: string,
+): Promise<ItemsByType | null> {
+  const userId = await requireUserId();
+
+  // Match against the same pluralization the sidebar uses (`${name}s`) so the
+  // slug round-trips exactly, rather than guessing the singular form.
+  const types = await prisma.itemType.findMany({
+    where: { isSystem: true },
+    select: { id: true, name: true, icon: true, color: true },
+  });
+  const itemType = types.find((type) => `${type.name}s` === typeSlug);
+  if (!itemType) return null;
+
+  const items = await prisma.item.findMany({
+    where: { userId, itemTypeId: itemType.id },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    include: itemInclude,
+  });
+
+  return {
+    type: {
+      id: itemType.id,
+      name: itemType.name,
+      label: toLabel(itemType.name),
+      icon: itemType.icon,
+      color: itemType.color,
+    },
+    items: items.map(toDashboardItem),
+  };
+}
+
 // Aggregate item counts for the dashboard stat cards.
 export async function getItemStats(): Promise<ItemStats> {
   const userId = await requireUserId();
