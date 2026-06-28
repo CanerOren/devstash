@@ -19,9 +19,13 @@ npm run build    # Production build
 npm run start    # Serve the production build
 npm run lint     # ESLint (flat config, eslint-config-next)
 npx tsc --noEmit # Type-check without emitting (no dedicated script)
+npm test         # Run unit tests once (Vitest)
+npm run test:watch # Run unit tests in watch mode
 ```
 
-There is no test runner configured in this project.
+Unit tests use [Vitest](https://vitest.dev) (Node environment). We test **server
+actions and utilities only** — not React components. Test files are colocated
+next to the code as `*.test.ts` (e.g. `src/lib/auth/password-reset.test.ts`).
 
 ## Neon MCP Usage
 

@@ -90,6 +90,14 @@ Example v4 configuration:
 - Return `{ success, data, error }` pattern from actions
 - Display user-friendly error messages via toast
 
+## Testing
+
+- Use Vitest (`npm test`, `npm run test:watch`)
+- Test **server actions** (`src/actions/`) and **utilities** (`src/lib/`) only — not components, pages, or layouts
+- Colocate tests as `*.test.ts` next to the code under test (never `.test.tsx`)
+- Mock infrastructure modules (`@/lib/prisma`, `@/lib/email`, etc.) so tests need no DB, network, or env
+- Tests run in a Node environment; the `@/*` alias resolves the same as in app code
+
 ## Code Quality
 
 - No commented-out code unless specified

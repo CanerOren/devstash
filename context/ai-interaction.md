@@ -15,7 +15,7 @@ This is the common workflow that we will use for every single feature/fix:
 1. **Document** - Document the feature in @context/current-feature.md.
 2. **Branch** - Create new branch for feature, fix, etc
 3. **Implement** - Implement the feature/fix that I create in @context/current-feature.md
-4. **Test** - Verify it works in the browser. Implement unit testing later. Run `npm run build` and fix any errors
+4. **Test** - Verify it works in the browser. Write/update unit tests (Vitest) for any new or changed **server actions and utilities** — see Testing below. Run `npm test` and `npm run build`, and fix any errors
 5. **Iterate** - Iterate and change things if needed
 6. **Commit** - Only after build passes and everything works
 7. **Merge** - Merge to main
@@ -48,6 +48,20 @@ We will create a new branch for every feature/fix. Name branch **feature/[featur
 - Don't refactor unrelated code unless asked
 - Don't add "nice to have" features
 - Preserve existing patterns in the codebase
+
+## Testing
+
+We use [Vitest](https://vitest.dev) for unit tests (`npm test`, `npm run test:watch`).
+
+- **Scope:** test **server actions** (`src/actions/`) and **utilities/helpers**
+  (`src/lib/`) only. Do **not** write tests for React components, pages, or layouts.
+- Colocate tests next to the code as `*.test.ts` (e.g. `password-reset.test.ts`
+  beside `password-reset.ts`). Never use `.test.tsx` — that's reserved for the
+  component testing we deliberately don't do.
+- Focus on pure logic: validation/parsing, token namespacing, data mapping,
+  formatting, branching. Mock infrastructure (`@/lib/prisma`, `@/lib/email`, etc.)
+  so tests need no DB, network, or env — see the existing test for the pattern.
+- Tests run in a Node environment; the `@/*` alias works the same as in app code.
 
 ## Code Review
 

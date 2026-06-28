@@ -47,6 +47,7 @@ This creates constant context switching, lost knowledge, and inconsistent workfl
 | **Styling** | [Tailwind CSS v4](https://tailwindcss.com/docs) + [shadcn/ui](https://ui.shadcn.com) |
 | **Payments** | [Stripe](https://stripe.com/docs) |
 | **Caching** | [Redis](https://redis.io/docs) *(optional, TBD)* |
+| **Testing** | [Vitest](https://vitest.dev) — server actions & utilities only |
 
 > **Migration rule:** Never use `prisma db push`. All schema changes go through versioned migrations (`prisma migrate dev` → `prisma migrate deploy`).
 
