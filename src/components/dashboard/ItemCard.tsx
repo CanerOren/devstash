@@ -1,8 +1,11 @@
+"use client";
+
 import { createElement } from "react";
 import { Pin, Star } from "lucide-react";
 
 import type { DashboardItem } from "@/lib/db/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
+import { useItemDrawer } from "@/components/items/item-drawer-context";
 
 // Formats a date as "Jan 15".
 function formatDate(date: Date): string {
@@ -13,12 +16,16 @@ function formatDate(date: Date): string {
 }
 
 // A horizontal item row used in the Pinned and Recent lists. The left border is
-// tinted with the item type's color (per the project UI rules).
+// tinted with the item type's color (per the project UI rules). Clicking opens
+// the item drawer (the detail view) — full data is fetched there on demand.
 export function ItemCard({ item }: { item: DashboardItem }) {
   const itemType = item.type;
+  const { openItem } = useItemDrawer();
   return (
-    <div
-      className="group flex items-start gap-3 rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent/40"
+    <button
+      type="button"
+      onClick={() => openItem(item)}
+      className="group flex w-full items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-accent/40"
       // Item type color is data-driven, so the accent border must be inline.
       style={{ borderLeftColor: itemType.color, borderLeftWidth: 2 }}
     >
@@ -66,6 +73,6 @@ export function ItemCard({ item }: { item: DashboardItem }) {
       <time className="shrink-0 text-xs text-muted-foreground">
         {formatDate(item.createdAt)}
       </time>
-    </div>
+    </button>
   );
 }
