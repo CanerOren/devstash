@@ -27,6 +27,27 @@ export interface ItemStats {
   favorites: number;
 }
 
+// Full detail for a single item, loaded on demand when its drawer opens. Carries
+// everything the card view-model lacks (content, language, collections, dates).
+export interface ItemDetail {
+  id: string;
+  title: string;
+  description: string | null;
+  contentType: "TEXT" | "FILE" | "URL";
+  content: string | null;
+  url: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  language: string | null;
+  isFavorite: boolean;
+  isPinned: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  tags: string[];
+  type: DashboardItemType;
+  collections: { id: string; name: string }[];
+}
+
 // A system item type row for the sidebar nav, with the user's count for it.
 export interface SidebarItemType {
   id: string;
@@ -158,6 +179,54 @@ export async function getItemsByType(
       color: itemType.color,
     },
     items: items.map(toDashboardItem),
+  };
+}
+
+// Full detail for one of the current user's items, by id. Scoped to the session
+// user via `findFirst({ where: { id, userId } })`, so another user's id resolves
+// to null (the API route turns that into a 404). Powers the item drawer.
+export async function getItemDetail(id: string): Promise<ItemDetail | null> {
+  const userId = await requireUserId();
+
+  const item = await prisma.item.findFirst({
+    where: { id, userId },
+    include: {
+      itemType: {
+        select: { id: true, name: true, icon: true, color: true },
+      },
+      tags: {
+        select: { tag: { select: { name: true } } },
+      },
+      collections: {
+        select: { collection: { select: { id: true, name: true } } },
+      },
+    },
+  });
+  if (!item) return null;
+
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    contentType: item.contentType,
+    content: item.content,
+    url: item.url,
+    fileName: item.fileName,
+    fileSize: item.fileSize,
+    language: item.language,
+    isFavorite: item.isFavorite,
+    isPinned: item.isPinned,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    tags: item.tags.map(({ tag }) => tag.name),
+    type: {
+      id: item.itemType.id,
+      name: item.itemType.name,
+      label: toLabel(item.itemType.name),
+      icon: item.itemType.icon,
+      color: item.itemType.color,
+    },
+    collections: item.collections.map(({ collection }) => collection),
   };
 }
 
