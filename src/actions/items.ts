@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import {
   updateItem as updateItemQuery,
+  deleteItem as deleteItemQuery,
   type ItemDetail,
   type UpdateItemData,
 } from "@/lib/db/items";
@@ -82,6 +83,40 @@ export async function updateItem(
     return { success: true, data: updated };
   } catch (error) {
     console.error("[updateItem] failed:", error);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+const deleteItemSchema = z.object({
+  itemId: z.string().trim().min(1, "Item id is required"),
+});
+
+export interface DeleteItemResult {
+  success: boolean;
+  error?: string;
+}
+
+// Deletes an item. Validates the id with Zod (the source of truth), then
+// delegates to the query layer, which enforces ownership. A false result means
+// the item isn't the user's (or doesn't exist) → "Item not found.".
+export async function deleteItem(itemId: string): Promise<DeleteItemResult> {
+  try {
+    const parsed = deleteItemSchema.safeParse({ itemId });
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+      };
+    }
+
+    const deleted = await deleteItemQuery(parsed.data.itemId);
+    if (!deleted) {
+      return { success: false, error: "Item not found." };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("[deleteItem] failed:", error);
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }

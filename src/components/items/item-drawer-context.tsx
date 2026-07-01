@@ -90,6 +90,12 @@ export function ItemDrawerProvider({
     );
   }, []);
 
+  // After a successful delete, close the drawer. The card list is refreshed by
+  // the drawer's router.refresh(), so the item disappears from the page.
+  const handleDeleted = useCallback(() => {
+    setOpen(false);
+  }, []);
+
   return (
     <ItemDrawerContext.Provider value={{ openItem }}>
       {children}
@@ -101,6 +107,7 @@ export function ItemDrawerProvider({
         loading={loading}
         error={error}
         onUpdated={handleUpdated}
+        onDeleted={handleDeleted}
       />
     </ItemDrawerContext.Provider>
   );
