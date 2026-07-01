@@ -230,6 +230,63 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
   };
 }
 
+// The editable fields of an item, as accepted by `updateItem`. Validated by the
+// server action's Zod schema before reaching here, so values are already
+// normalized (trimmed title, empty strings collapsed to null, tags deduped).
+export interface UpdateItemData {
+  title: string;
+  description: string | null;
+  content: string | null;
+  url: string | null;
+  language: string | null;
+  tags: string[];
+}
+
+// Updates one of the current user's items and returns the refreshed ItemDetail
+// (so the drawer can refresh without a second fetch). Scoped to the session user
+// via a prior ownership check; returns null when the id isn't the user's (the
+// caller turns that into a "not found" error). Tag handling per the spec:
+// replace the item's join rows wholesale (deleteMany) and connect-or-create each
+// tag by its (name, userId) unique key, so tags are reused across items.
+export async function updateItem(
+  id: string,
+  data: UpdateItemData,
+): Promise<ItemDetail | null> {
+  const userId = await requireUserId();
+
+  // Ownership check — `update`'s where only takes the unique id, so we verify
+  // the item belongs to the session user first.
+  const existing = await prisma.item.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!existing) return null;
+
+  await prisma.item.update({
+    where: { id },
+    data: {
+      title: data.title,
+      description: data.description,
+      content: data.content,
+      url: data.url,
+      language: data.language,
+      tags: {
+        deleteMany: {},
+        create: data.tags.map((name) => ({
+          tag: {
+            connectOrCreate: {
+              where: { name_userId: { name, userId } },
+              create: { name, userId },
+            },
+          },
+        })),
+      },
+    },
+  });
+
+  return getItemDetail(id);
+}
+
 // Aggregate item counts for the dashboard stat cards.
 export async function getItemStats(): Promise<ItemStats> {
   const userId = await requireUserId();

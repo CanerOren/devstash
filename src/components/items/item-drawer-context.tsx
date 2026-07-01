@@ -71,6 +71,25 @@ export function ItemDrawerProvider({
       });
   }, []);
 
+  // After a successful edit, replace the open drawer's detail with the fresh copy
+  // and keep the summary's card-derived fields in sync (so the header stays
+  // correct even before detail re-renders).
+  const handleUpdated = useCallback((updated: ItemDetailResponse) => {
+    setDetail(updated);
+    setSummary((prev) =>
+      prev && prev.id === updated.id
+        ? {
+            ...prev,
+            title: updated.title,
+            description: updated.description,
+            tags: updated.tags,
+            isFavorite: updated.isFavorite,
+            isPinned: updated.isPinned,
+          }
+        : prev,
+    );
+  }, []);
+
   return (
     <ItemDrawerContext.Provider value={{ openItem }}>
       {children}
@@ -81,6 +100,7 @@ export function ItemDrawerProvider({
         detail={detail}
         loading={loading}
         error={error}
+        onUpdated={handleUpdated}
       />
     </ItemDrawerContext.Provider>
   );

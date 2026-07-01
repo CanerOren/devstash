@@ -1,10 +1,13 @@
 "use client";
 
 import { createElement, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import {
   Check,
   Copy,
   ExternalLink,
+  Loader2,
   Pencil,
   Pin,
   Star,
@@ -12,10 +15,17 @@ import {
 } from "lucide-react";
 
 import type { DashboardItem, ItemDetail } from "@/lib/db/items";
+import { updateItem } from "@/actions/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  ItemEditForm,
+  initialEditState,
+  type ItemEditState,
+} from "@/components/items/ItemEditForm";
 import {
   Sheet,
   SheetContent,
@@ -40,6 +50,8 @@ interface ItemDrawerProps {
   detail: ItemDetailResponse | null;
   loading: boolean;
   error: string | null;
+  // Called with the refreshed detail after a successful inline edit.
+  onUpdated: (detail: ItemDetailResponse) => void;
 }
 
 // Formats a date as "January 15, 2024".
@@ -61,7 +73,23 @@ export function ItemDrawer({
   detail,
   loading,
   error,
+  onUpdated,
 }: ItemDrawerProps) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState<ItemEditState | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Leave edit mode whenever the drawer switches to a different item. Adjusting
+  // state during render (the React-recommended pattern for resetting on a prop
+  // change) avoids an effect + the cascading-render lint rule.
+  const [prevDetailId, setPrevDetailId] = useState(detail?.id);
+  if (detail?.id !== prevDetailId) {
+    setPrevDetailId(detail?.id);
+    setEditing(false);
+    setForm(null);
+  }
+
   // Prefer fresh detail, fall back to the card summary while it loads.
   const type = detail?.type ?? summary?.type ?? null;
   const title = detail?.title ?? summary?.title ?? "";
@@ -70,8 +98,64 @@ export function ItemDrawer({
   const isFavorite = detail?.isFavorite ?? summary?.isFavorite ?? false;
   const isPinned = detail?.isPinned ?? summary?.isPinned ?? false;
 
+  function startEditing() {
+    if (!detail) return;
+    setForm(initialEditState(detail));
+    setEditing(true);
+  }
+
+  function cancelEditing() {
+    setEditing(false);
+    setForm(null);
+  }
+
+  async function handleSave() {
+    if (!detail || !form || !form.title.trim()) return;
+
+    setSaving(true);
+    const result = await updateItem(detail.id, {
+      title: form.title.trim(),
+      description: form.description,
+      content: form.content,
+      url: form.url,
+      language: form.language,
+      tags: form.tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
+    });
+    setSaving(false);
+
+    if (!result.success || !result.data) {
+      toast.error(result.error ?? "Failed to update item");
+      return;
+    }
+
+    // The action returns ItemDetail (Date objects); mirror the wire shape the
+    // drawer state uses (ISO strings).
+    const updated = result.data;
+    onUpdated({
+      ...updated,
+      createdAt: new Date(updated.createdAt).toISOString(),
+      updatedAt: new Date(updated.updatedAt).toISOString(),
+    });
+    setEditing(false);
+    setForm(null);
+    router.refresh(); // reflect changes in the underlying card list
+    toast.success("Item updated");
+  }
+
+  // Reset edit state when the drawer closes.
+  function handleOpenChange(next: boolean) {
+    if (!next) {
+      setEditing(false);
+      setForm(null);
+    }
+    onOpenChange(next);
+  }
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       {/* Override the Sheet's built-in `data-[side=right]:sm:max-w-sm` cap (its
           attribute selector wins on specificity) with the same modifier prefix
           so the drawer can actually grow wider. */}
@@ -92,7 +176,7 @@ export function ItemDrawer({
             )}
             <div className="min-w-0 flex-1 space-y-2">
               <SheetTitle className="text-lg leading-tight break-words">
-                {title}
+                {editing ? form?.title || "Untitled" : title}
               </SheetTitle>
               {/* Visually hidden — satisfies Radix's aria-describedby requirement. */}
               <SheetDescription className="sr-only">
@@ -107,19 +191,46 @@ export function ItemDrawer({
             </div>
           </div>
 
-          {/* Keyed by item id so per-item state (e.g. "Copied!") resets when the
-              drawer switches to a different item. */}
-          <ActionBar
-            key={detail?.id ?? "loading"}
-            isFavorite={isFavorite}
-            isPinned={isPinned}
-            detail={detail}
-          />
+          {editing ? (
+            // In edit mode the action bar is replaced with Save / Cancel.
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSave}
+                disabled={saving || !form?.title.trim()}
+              >
+                {saving && <Loader2 className="size-4 animate-spin" />}
+                Save
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={cancelEditing}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            // Keyed by item id so per-item state (e.g. "Copied!") resets when the
+            // drawer switches to a different item.
+            <ActionBar
+              key={detail?.id ?? "loading"}
+              isFavorite={isFavorite}
+              isPinned={isPinned}
+              detail={detail}
+              onEdit={startEditing}
+            />
+          )}
         </SheetHeader>
 
         {/* Body */}
         <div className="space-y-6 p-6">
-          {error ? (
+          {editing && form && type ? (
+            <ItemEditForm typeName={type.name} value={form} onChange={setForm} />
+          ) : error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : (
             <>
@@ -283,10 +394,12 @@ function ActionBar({
   isFavorite,
   isPinned,
   detail,
+  onEdit,
 }: {
   isFavorite: boolean;
   isPinned: boolean;
   detail: ItemDetailResponse | null;
+  onEdit: () => void;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -318,7 +431,13 @@ function ActionBar({
         onClick={handleCopy}
         disabled={!copyText}
       />
-      <ActionButton icon={Pencil} label="Edit" />
+      {/* Edit needs the loaded detail to populate the form. */}
+      <ActionButton
+        icon={Pencil}
+        label="Edit"
+        onClick={onEdit}
+        disabled={!detail}
+      />
 
       <ActionButton
         icon={Trash2}

@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { SidebarProvider } from "@/components/dashboard/sidebar-context";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { ItemDrawerProvider } from "@/components/items/item-drawer-context";
+import { Toaster } from "@/components/ui/sonner";
 import { getSidebarItemTypes } from "@/lib/db/items";
 import { getSidebarCollections } from "@/lib/db/collections";
 import { getCurrentUser } from "@/lib/db/user";
@@ -34,6 +35,7 @@ export async function AppShell({
           </main>
         </div>
       </div>
+      <Toaster />
     </SidebarProvider>
   );
 }
