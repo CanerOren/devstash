@@ -230,6 +230,66 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
   };
 }
 
+// The fields needed to create an item, as accepted by `createItem`. Validated by
+// the server action's Zod schema before reaching here, so values are already
+// normalized (trimmed title, empty strings collapsed to null, tags deduped, and
+// type-inapplicable fields nulled out).
+export interface CreateItemData {
+  typeName: string; // raw system type name, e.g. "snippet"
+  title: string;
+  description: string | null;
+  content: string | null;
+  url: string | null;
+  language: string | null;
+  tags: string[];
+}
+
+// Creates an item of a system type for the current user and returns its full
+// ItemDetail. Resolves the item type by its raw name (the 5 creatable TEXT/URL
+// types) and derives contentType from it (URL for links, TEXT otherwise).
+// Returns null when the type name doesn't match a system item type (the caller
+// turns that into an error). Tags connect-or-create by (name, userId) so they're
+// reused across items, matching updateItem.
+export async function createItem(
+  data: CreateItemData,
+): Promise<ItemDetail | null> {
+  const userId = await requireUserId();
+
+  const itemType = await prisma.itemType.findFirst({
+    where: { name: data.typeName, isSystem: true },
+    select: { id: true },
+  });
+  if (!itemType) return null;
+
+  const contentType = data.typeName === "link" ? "URL" : "TEXT";
+
+  const created = await prisma.item.create({
+    data: {
+      title: data.title,
+      description: data.description,
+      content: data.content,
+      url: data.url,
+      language: data.language,
+      contentType,
+      userId,
+      itemTypeId: itemType.id,
+      tags: {
+        create: data.tags.map((name) => ({
+          tag: {
+            connectOrCreate: {
+              where: { name_userId: { name, userId } },
+              create: { name, userId },
+            },
+          },
+        })),
+      },
+    },
+    select: { id: true },
+  });
+
+  return getItemDetail(created.id);
+}
+
 // The editable fields of an item, as accepted by `updateItem`. Validated by the
 // server action's Zod schema before reaching here, so values are already
 // normalized (trimmed title, empty strings collapsed to null, tags deduped).

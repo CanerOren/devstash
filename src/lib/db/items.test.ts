@@ -4,24 +4,34 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // @/lib/db/helpers (whose requireUserId pulls in @/auth). Mock both so these
 // tests need no DB, env, or session. vi.hoisted creates the prisma mock fns
 // before the hoisted vi.mock factories run, so they can be referenced inside.
-const { findFirst, itemFindMany, itemUpdate, itemDelete, itemTypeFindMany } =
-  vi.hoisted(() => ({
-    findFirst: vi.fn(),
-    itemFindMany: vi.fn(),
-    itemUpdate: vi.fn(),
-    itemDelete: vi.fn(),
-    itemTypeFindMany: vi.fn(),
-  }));
+const {
+  findFirst,
+  itemFindMany,
+  itemCreate,
+  itemUpdate,
+  itemDelete,
+  itemTypeFindMany,
+  itemTypeFindFirst,
+} = vi.hoisted(() => ({
+  findFirst: vi.fn(),
+  itemFindMany: vi.fn(),
+  itemCreate: vi.fn(),
+  itemUpdate: vi.fn(),
+  itemDelete: vi.fn(),
+  itemTypeFindMany: vi.fn(),
+  itemTypeFindFirst: vi.fn(),
+}));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     item: {
       findFirst,
       findMany: itemFindMany,
+      create: itemCreate,
       update: itemUpdate,
       delete: itemDelete,
     },
-    itemType: { findMany: itemTypeFindMany },
+    itemType: { findMany: itemTypeFindMany, findFirst: itemTypeFindFirst },
   },
 }));
 
@@ -34,6 +44,7 @@ vi.mock("@/lib/db/helpers", () => ({
 import {
   getItemDetail,
   getItemsByType,
+  createItem,
   updateItem,
   deleteItem,
 } from "@/lib/db/items";
@@ -106,6 +117,96 @@ describe("getItemDetail", () => {
       },
       collections: [{ id: "c1", name: "React Patterns" }],
     });
+  });
+});
+
+describe("createItem", () => {
+  const base = {
+    title: "New Snippet",
+    description: null,
+    content: "code",
+    url: null,
+    language: "typescript",
+    tags: ["react", "hooks"],
+  };
+
+  it("returns null without creating when the type name isn't a system type", async () => {
+    itemTypeFindFirst.mockResolvedValue(null);
+    expect(await createItem({ typeName: "bogus", ...base })).toBeNull();
+    expect(itemCreate).not.toHaveBeenCalled();
+  });
+
+  it("derives contentType TEXT for a text type and connect-or-creates tags scoped to the user", async () => {
+    itemTypeFindFirst.mockResolvedValue({ id: "t_snippet" });
+    itemCreate.mockResolvedValue({ id: "item_1" });
+    findFirst.mockResolvedValue(detailRow()); // getItemDetail refetch
+
+    const result = await createItem({ typeName: "snippet", ...base });
+
+    expect(itemTypeFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { name: "snippet", isSystem: true } }),
+    );
+    expect(itemCreate).toHaveBeenCalledWith({
+      data: {
+        title: "New Snippet",
+        description: null,
+        content: "code",
+        url: null,
+        language: "typescript",
+        contentType: "TEXT",
+        userId: "user_1",
+        itemTypeId: "t_snippet",
+        tags: {
+          create: [
+            {
+              tag: {
+                connectOrCreate: {
+                  where: { name_userId: { name: "react", userId: "user_1" } },
+                  create: { name: "react", userId: "user_1" },
+                },
+              },
+            },
+            {
+              tag: {
+                connectOrCreate: {
+                  where: { name_userId: { name: "hooks", userId: "user_1" } },
+                  create: { name: "hooks", userId: "user_1" },
+                },
+              },
+            },
+          ],
+        },
+      },
+      select: { id: true },
+    });
+    // Returns the refreshed detail from the post-create refetch.
+    expect(result?.id).toBe("item_1");
+  });
+
+  it("derives contentType URL for a link type", async () => {
+    itemTypeFindFirst.mockResolvedValue({ id: "t_link" });
+    itemCreate.mockResolvedValue({ id: "item_2" });
+    findFirst.mockResolvedValue(detailRow());
+
+    await createItem({
+      typeName: "link",
+      title: "Docs",
+      description: null,
+      content: null,
+      url: "https://example.com",
+      language: null,
+      tags: [],
+    });
+
+    expect(itemCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          contentType: "URL",
+          url: "https://example.com",
+          itemTypeId: "t_link",
+        }),
+      }),
+    );
   });
 });
 

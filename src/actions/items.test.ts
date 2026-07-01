@@ -3,17 +3,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // The action delegates persistence to lib/db/items' updateItem (which pulls in
 // prisma + auth). Mock it so these tests exercise only the action's Zod
 // validation / normalization, with no DB or session.
-const { updateItemQuery, deleteItemQuery } = vi.hoisted(() => ({
+const { createItemQuery, updateItemQuery, deleteItemQuery } = vi.hoisted(() => ({
+  createItemQuery: vi.fn(),
   updateItemQuery: vi.fn(),
   deleteItemQuery: vi.fn(),
 }));
 
 vi.mock("@/lib/db/items", () => ({
+  createItem: createItemQuery,
   updateItem: updateItemQuery,
   deleteItem: deleteItemQuery,
 }));
 
-import { updateItem, deleteItem } from "@/actions/items";
+import { createItem, updateItem, deleteItem } from "@/actions/items";
 
 function input(overrides: Record<string, unknown> = {}) {
   return {
@@ -32,8 +34,129 @@ const okDetail = { id: "item_1", title: "Hello" };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  createItemQuery.mockResolvedValue(okDetail);
   updateItemQuery.mockResolvedValue(okDetail);
   deleteItemQuery.mockResolvedValue(true);
+});
+
+function createInput(overrides: Record<string, unknown> = {}) {
+  return {
+    type: "snippet",
+    title: "Hello",
+    description: "",
+    content: "",
+    url: "",
+    language: "",
+    tags: [] as string[],
+    ...overrides,
+  };
+}
+
+describe("createItem action — validation", () => {
+  it("rejects an empty / whitespace-only title without touching the DB", async () => {
+    const result = await createItem(createInput({ title: "   " }));
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Title is required");
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unknown / non-creatable type", async () => {
+    const result = await createItem(createInput({ type: "image" }));
+    expect(result.success).toBe(false);
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("requires a URL for link items", async () => {
+    const result = await createItem(createInput({ type: "link", url: "" }));
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("URL is required");
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("rejects an invalid URL for link items", async () => {
+    const result = await createItem(
+      createInput({ type: "link", url: "not-a-url" }),
+    );
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Enter a valid URL");
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+});
+
+describe("createItem action — normalization", () => {
+  it("trims the title, collapses empties to null, and keeps content for text types", async () => {
+    await createItem(
+      createInput({ title: "  Padded  ", content: "  code  ", tags: ["a"] }),
+    );
+    expect(createItemQuery).toHaveBeenCalledWith({
+      typeName: "snippet",
+      title: "Padded",
+      description: null,
+      content: "  code  ", // not trimmed — code whitespace is significant
+      url: null, // snippet is not a link
+      language: null,
+      tags: ["a"],
+    });
+  });
+
+  it("keeps the url and nulls content/language for link items", async () => {
+    await createItem(
+      createInput({
+        type: "link",
+        content: "ignored",
+        language: "ignored",
+        url: "https://example.com/x",
+      }),
+    );
+    expect(createItemQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        typeName: "link",
+        content: null,
+        language: null,
+        url: "https://example.com/x",
+      }),
+    );
+  });
+
+  it("nulls language for a note (content kept, language not applicable)", async () => {
+    await createItem(
+      createInput({ type: "note", content: "a note", language: "markdown" }),
+    );
+    expect(createItemQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        typeName: "note",
+        content: "a note",
+        language: null,
+      }),
+    );
+  });
+
+  it("trims, drops blank, and de-duplicates tags", async () => {
+    await createItem(createInput({ tags: [" react ", "react", "", "hooks"] }));
+    expect(createItemQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ tags: ["react", "hooks"] }),
+    );
+  });
+});
+
+describe("createItem action — result", () => {
+  it("returns the query's detail on success", async () => {
+    const result = await createItem(createInput());
+    expect(result).toEqual({ success: true, data: okDetail });
+  });
+
+  it("returns an error when the query resolves null (missing system type)", async () => {
+    createItemQuery.mockResolvedValue(null);
+    const result = await createItem(createInput());
+    expect(result).toEqual({ success: false, error: "Could not create item." });
+  });
+
+  it("returns a generic error when the query throws", async () => {
+    createItemQuery.mockRejectedValue(new Error("db down"));
+    const result = await createItem(createInput());
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Something went wrong. Please try again.");
+  });
 });
 
 describe("updateItem action — validation", () => {
