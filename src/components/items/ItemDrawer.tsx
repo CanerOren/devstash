@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 
 import type { DashboardItem, ItemDetail } from "@/lib/db/items";
-import { updateItem } from "@/actions/items";
+import { updateItem, deleteItem } from "@/actions/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,17 @@ import {
   initialEditState,
   type ItemEditState,
 } from "@/components/items/ItemEditForm";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import {
   Sheet,
   SheetContent,
@@ -52,6 +63,8 @@ interface ItemDrawerProps {
   error: string | null;
   // Called with the refreshed detail after a successful inline edit.
   onUpdated: (detail: ItemDetailResponse) => void;
+  // Called after a successful delete so the container can close the drawer.
+  onDeleted: () => void;
 }
 
 // Formats a date as "January 15, 2024".
@@ -74,11 +87,13 @@ export function ItemDrawer({
   loading,
   error,
   onUpdated,
+  onDeleted,
 }: ItemDrawerProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState<ItemEditState | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Leave edit mode whenever the drawer switches to a different item. Adjusting
   // state during render (the React-recommended pattern for resetting on a prop
@@ -143,6 +158,23 @@ export function ItemDrawer({
     setForm(null);
     router.refresh(); // reflect changes in the underlying card list
     toast.success("Item updated");
+  }
+
+  async function handleDelete() {
+    if (!detail) return;
+
+    setDeleting(true);
+    const result = await deleteItem(detail.id);
+    setDeleting(false);
+
+    if (!result.success) {
+      toast.error(result.error ?? "Failed to delete item");
+      return;
+    }
+
+    onDeleted(); // close the drawer
+    router.refresh(); // drop the item from the underlying card list
+    toast.success("Item deleted");
   }
 
   // Reset edit state when the drawer closes.
@@ -222,6 +254,9 @@ export function ItemDrawer({
               isPinned={isPinned}
               detail={detail}
               onEdit={startEditing}
+              onDelete={handleDelete}
+              deleting={deleting}
+              title={title}
             />
           )}
         </SheetHeader>
@@ -388,18 +423,24 @@ function formatFileSize(bytes: number): string {
   return `${size.toFixed(1)} ${units[unit]}`;
 }
 
-// The action bar. Copy is functional; favorite/pin/edit/delete reflect state but
-// their mutations are deferred to a later feature (per the drawer spec).
+// The action bar. Copy, Edit, and Delete are functional; favorite/pin reflect
+// state but their mutations are deferred to a later feature (per the drawer spec).
 function ActionBar({
   isFavorite,
   isPinned,
   detail,
   onEdit,
+  onDelete,
+  deleting,
+  title,
 }: {
   isFavorite: boolean;
   isPinned: boolean;
   detail: ItemDetailResponse | null;
   onEdit: () => void;
+  onDelete: () => void;
+  deleting: boolean;
+  title: string;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -439,12 +480,45 @@ function ActionBar({
         disabled={!detail}
       />
 
-      <ActionButton
-        icon={Trash2}
-        label="Delete"
-        hideLabel
-        className="ml-auto text-destructive hover:text-destructive"
-      />
+      <AlertDialog>
+        <AlertDialogTrigger asChild>
+          <button
+            type="button"
+            title="Delete"
+            aria-label="Delete"
+            disabled={!detail}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-destructive transition-colors hover:bg-accent hover:text-destructive disabled:pointer-events-none disabled:opacity-50"
+          >
+            <Trash2 className="size-4" />
+          </button>
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete
+              {title ? ` “${title}”` : " this item"}. This action can&apos;t be
+              undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={deleting}
+              onClick={(event) => {
+                // Keep the dialog open while the delete is in flight; the drawer
+                // (and this dialog with it) unmounts on success.
+                event.preventDefault();
+                onDelete();
+              }}
+            >
+              {deleting && <Loader2 className="size-4 animate-spin" />}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

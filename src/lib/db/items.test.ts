@@ -4,18 +4,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // @/lib/db/helpers (whose requireUserId pulls in @/auth). Mock both so these
 // tests need no DB, env, or session. vi.hoisted creates the prisma mock fns
 // before the hoisted vi.mock factories run, so they can be referenced inside.
-const { findFirst, itemFindMany, itemUpdate, itemTypeFindMany } = vi.hoisted(
-  () => ({
+const { findFirst, itemFindMany, itemUpdate, itemDelete, itemTypeFindMany } =
+  vi.hoisted(() => ({
     findFirst: vi.fn(),
     itemFindMany: vi.fn(),
     itemUpdate: vi.fn(),
+    itemDelete: vi.fn(),
     itemTypeFindMany: vi.fn(),
-  }),
-);
+  }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    item: { findFirst, findMany: itemFindMany, update: itemUpdate },
+    item: {
+      findFirst,
+      findMany: itemFindMany,
+      update: itemUpdate,
+      delete: itemDelete,
+    },
     itemType: { findMany: itemTypeFindMany },
   },
 }));
@@ -26,7 +31,12 @@ vi.mock("@/lib/db/helpers", () => ({
   toLabel: (name: string) => name.charAt(0).toUpperCase() + name.slice(1),
 }));
 
-import { getItemDetail, getItemsByType, updateItem } from "@/lib/db/items";
+import {
+  getItemDetail,
+  getItemsByType,
+  updateItem,
+  deleteItem,
+} from "@/lib/db/items";
 
 // A full prisma row as returned by getItemDetail's include shape.
 function detailRow() {
@@ -156,6 +166,30 @@ describe("updateItem", () => {
     });
     // Returns the refreshed detail from the post-update refetch.
     expect(result?.id).toBe("item_1");
+  });
+});
+
+describe("deleteItem", () => {
+  it("returns false without deleting when the item isn't the user's", async () => {
+    findFirst.mockResolvedValue(null); // ownership check fails
+    expect(await deleteItem("item_1")).toBe(false);
+    expect(itemDelete).not.toHaveBeenCalled();
+  });
+
+  it("scopes the ownership check to the session user and the requested id", async () => {
+    findFirst.mockResolvedValue(null);
+    await deleteItem("item_1");
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "item_1", userId: "user_1" } }),
+    );
+  });
+
+  it("deletes by id and returns true when the item is the user's", async () => {
+    findFirst.mockResolvedValue({ id: "item_1" }); // ownership check passes
+    itemDelete.mockResolvedValue({ id: "item_1" });
+
+    expect(await deleteItem("item_1")).toBe(true);
+    expect(itemDelete).toHaveBeenCalledWith({ where: { id: "item_1" } });
   });
 });
 

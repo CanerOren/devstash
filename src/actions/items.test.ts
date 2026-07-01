@@ -3,13 +3,17 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // The action delegates persistence to lib/db/items' updateItem (which pulls in
 // prisma + auth). Mock it so these tests exercise only the action's Zod
 // validation / normalization, with no DB or session.
-const { updateItemQuery } = vi.hoisted(() => ({ updateItemQuery: vi.fn() }));
+const { updateItemQuery, deleteItemQuery } = vi.hoisted(() => ({
+  updateItemQuery: vi.fn(),
+  deleteItemQuery: vi.fn(),
+}));
 
 vi.mock("@/lib/db/items", () => ({
   updateItem: updateItemQuery,
+  deleteItem: deleteItemQuery,
 }));
 
-import { updateItem } from "@/actions/items";
+import { updateItem, deleteItem } from "@/actions/items";
 
 function input(overrides: Record<string, unknown> = {}) {
   return {
@@ -29,6 +33,7 @@ const okDetail = { id: "item_1", title: "Hello" };
 beforeEach(() => {
   vi.clearAllMocks();
   updateItemQuery.mockResolvedValue(okDetail);
+  deleteItemQuery.mockResolvedValue(true);
 });
 
 describe("updateItem action — validation", () => {
@@ -101,6 +106,34 @@ describe("updateItem action — result", () => {
   it("returns a generic error when the query throws", async () => {
     updateItemQuery.mockRejectedValue(new Error("db down"));
     const result = await updateItem("item_1", input());
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Something went wrong. Please try again.");
+  });
+});
+
+describe("deleteItem action", () => {
+  it("rejects an empty / whitespace-only id without touching the DB", async () => {
+    const result = await deleteItem("   ");
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Item id is required");
+    expect(deleteItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("deletes with the trimmed id and returns success", async () => {
+    const result = await deleteItem("  item_1  ");
+    expect(deleteItemQuery).toHaveBeenCalledWith("item_1");
+    expect(result).toEqual({ success: true });
+  });
+
+  it("returns a not-found error when the query resolves false (not the user's item)", async () => {
+    deleteItemQuery.mockResolvedValue(false);
+    const result = await deleteItem("missing");
+    expect(result).toEqual({ success: false, error: "Item not found." });
+  });
+
+  it("returns a generic error when the query throws", async () => {
+    deleteItemQuery.mockRejectedValue(new Error("db down"));
+    const result = await deleteItem("item_1");
     expect(result.success).toBe(false);
     expect(result.error).toBe("Something went wrong. Please try again.");
   });

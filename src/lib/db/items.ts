@@ -287,6 +287,25 @@ export async function updateItem(
   return getItemDetail(id);
 }
 
+// Deletes one of the current user's items. Scoped to the session user via an
+// ownership check; returns false when the id isn't the user's (the caller turns
+// that into a "not found" error), true when the delete succeeds. ItemCollection
+// and ItemTag join rows cascade on delete, so no manual cleanup is needed.
+export async function deleteItem(id: string): Promise<boolean> {
+  const userId = await requireUserId();
+
+  // Ownership check — `delete`'s where only takes the unique id, so we verify
+  // the item belongs to the session user first.
+  const existing = await prisma.item.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!existing) return false;
+
+  await prisma.item.delete({ where: { id } });
+  return true;
+}
+
 // Aggregate item counts for the dashboard stat cards.
 export async function getItemStats(): Promise<ItemStats> {
   const userId = await requireUserId();
