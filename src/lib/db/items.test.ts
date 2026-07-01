@@ -4,15 +4,18 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // @/lib/db/helpers (whose requireUserId pulls in @/auth). Mock both so these
 // tests need no DB, env, or session. vi.hoisted creates the prisma mock fns
 // before the hoisted vi.mock factories run, so they can be referenced inside.
-const { findFirst, itemFindMany, itemTypeFindMany } = vi.hoisted(() => ({
-  findFirst: vi.fn(),
-  itemFindMany: vi.fn(),
-  itemTypeFindMany: vi.fn(),
-}));
+const { findFirst, itemFindMany, itemUpdate, itemTypeFindMany } = vi.hoisted(
+  () => ({
+    findFirst: vi.fn(),
+    itemFindMany: vi.fn(),
+    itemUpdate: vi.fn(),
+    itemTypeFindMany: vi.fn(),
+  }),
+);
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    item: { findFirst, findMany: itemFindMany },
+    item: { findFirst, findMany: itemFindMany, update: itemUpdate },
     itemType: { findMany: itemTypeFindMany },
   },
 }));
@@ -23,7 +26,7 @@ vi.mock("@/lib/db/helpers", () => ({
   toLabel: (name: string) => name.charAt(0).toUpperCase() + name.slice(1),
 }));
 
-import { getItemDetail, getItemsByType } from "@/lib/db/items";
+import { getItemDetail, getItemsByType, updateItem } from "@/lib/db/items";
 
 // A full prisma row as returned by getItemDetail's include shape.
 function detailRow() {
@@ -93,6 +96,66 @@ describe("getItemDetail", () => {
       },
       collections: [{ id: "c1", name: "React Patterns" }],
     });
+  });
+});
+
+describe("updateItem", () => {
+  const data = {
+    title: "New Title",
+    description: null,
+    content: "code",
+    url: null,
+    language: "typescript",
+    tags: ["react", "hooks"],
+  };
+
+  it("returns null without writing when the item isn't the user's", async () => {
+    findFirst.mockResolvedValue(null); // ownership check fails
+    expect(await updateItem("item_1", data)).toBeNull();
+    expect(itemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("replaces tag rows via deleteMany + connect-or-create keyed by (name, userId)", async () => {
+    findFirst
+      .mockResolvedValueOnce({ id: "item_1" }) // ownership check
+      .mockResolvedValueOnce(detailRow()); // getItemDetail refetch
+    itemUpdate.mockResolvedValue({ id: "item_1" });
+
+    const result = await updateItem("item_1", data);
+
+    expect(itemUpdate).toHaveBeenCalledWith({
+      where: { id: "item_1" },
+      data: {
+        title: "New Title",
+        description: null,
+        content: "code",
+        url: null,
+        language: "typescript",
+        tags: {
+          deleteMany: {},
+          create: [
+            {
+              tag: {
+                connectOrCreate: {
+                  where: { name_userId: { name: "react", userId: "user_1" } },
+                  create: { name: "react", userId: "user_1" },
+                },
+              },
+            },
+            {
+              tag: {
+                connectOrCreate: {
+                  where: { name_userId: { name: "hooks", userId: "user_1" } },
+                  create: { name: "hooks", userId: "user_1" },
+                },
+              },
+            },
+          ],
+        },
+      },
+    });
+    // Returns the refreshed detail from the post-update refetch.
+    expect(result?.id).toBe("item_1");
   });
 });
 
