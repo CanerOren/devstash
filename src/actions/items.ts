@@ -3,9 +3,11 @@
 import { z } from "zod";
 
 import {
+  createItem as createItemQuery,
   updateItem as updateItemQuery,
   deleteItem as deleteItemQuery,
   type ItemDetail,
+  type CreateItemData,
   type UpdateItemData,
 } from "@/lib/db/items";
 
@@ -26,6 +28,85 @@ const nullableUrl = z.preprocess(
   emptyToNull,
   z.union([z.string().url("Enter a valid URL"), z.null()]),
 );
+
+// The 5 creatable types (TEXT/URL). File/image need R2 upload — out of scope.
+const CREATABLE_TYPES = ["snippet", "prompt", "command", "note", "link"] as const;
+// Which types keep a `content` body, and which keep a `language`, per the spec.
+const CONTENT_TYPE_NAMES = new Set(["snippet", "prompt", "command", "note"]);
+const LANGUAGE_TYPE_NAMES = new Set(["snippet", "command"]);
+
+const createItemSchema = z
+  .object({
+    type: z.enum(CREATABLE_TYPES),
+    title: z.string().trim().min(1, "Title is required"),
+    description: nullableText,
+    content: nullableText,
+    url: nullableUrl,
+    language: nullableText,
+    tags: z
+      .array(z.string())
+      .default([])
+      .transform((arr) => arr.map((tag) => tag.trim()).filter(Boolean)),
+  })
+  // Links must carry a URL (nullableUrl already validated the format when present).
+  .refine((data) => data.type !== "link" || data.url !== null, {
+    message: "URL is required",
+    path: ["url"],
+  });
+
+// `type` is widened to string so callers (the client dialog's type state) don't
+// need to pre-narrow it — the Zod enum is the runtime gate that rejects anything
+// outside the 5 creatable types.
+export type CreateItemInput = Omit<z.input<typeof createItemSchema>, "type"> & {
+  type: string;
+};
+
+export interface CreateItemResult {
+  success: boolean;
+  data?: ItemDetail;
+  error?: string;
+}
+
+// Creates a new item of one of the 5 creatable types. Validates with Zod (the
+// source of truth), nulls out fields that don't apply to the chosen type (so a
+// value typed before switching type isn't persisted), then delegates to the
+// query layer, which resolves the type + derives contentType and enforces the
+// user scope. A null result means the system type is missing (unseeded DB).
+export async function createItem(
+  input: CreateItemInput,
+): Promise<CreateItemResult> {
+  try {
+    const parsed = createItemSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+      };
+    }
+
+    const { type } = parsed.data;
+    const data: CreateItemData = {
+      typeName: type,
+      title: parsed.data.title,
+      description: parsed.data.description,
+      content: CONTENT_TYPE_NAMES.has(type) ? parsed.data.content : null,
+      url: type === "link" ? parsed.data.url : null,
+      language: LANGUAGE_TYPE_NAMES.has(type) ? parsed.data.language : null,
+      // Dedupe so two identical tags don't collide on the ItemTag composite key.
+      tags: [...new Set(parsed.data.tags)],
+    };
+
+    const created = await createItemQuery(data);
+    if (!created) {
+      return { success: false, error: "Could not create item." };
+    }
+
+    return { success: true, data: created };
+  } catch (error) {
+    console.error("[createItem] failed:", error);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
 
 const updateItemSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),

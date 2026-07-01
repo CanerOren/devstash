@@ -22,12 +22,24 @@ export async function AppShell({
     getCurrentUser(),
   ]);
 
+  // The types the "New Item" modal can create: the 5 TEXT/URL system types
+  // (file/image need R2 upload, so they're excluded). Singular labels for the
+  // selector; icon/color come straight from the DB-sourced sidebar types.
+  const createTypes = itemTypes
+    .filter((type) => type.name !== "file" && type.name !== "image")
+    .map((type) => ({
+      name: type.name,
+      label: type.name.charAt(0).toUpperCase() + type.name.slice(1),
+      icon: type.icon,
+      color: type.color,
+    }));
+
   return (
     <SidebarProvider>
       {/* Pin the shell to the viewport so only <main> scrolls — the TopBar and
           sidebar stay fixed instead of scrolling out of view. */}
       <div className="flex h-screen flex-col overflow-hidden">
-        <TopBar />
+        <TopBar createTypes={createTypes} />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar itemTypes={itemTypes} collections={collections} user={user} />
           <main className="flex-1 overflow-y-auto p-6">

@@ -1,16 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { FolderPlus, Menu, Plus, Search } from "lucide-react";
+import { FolderPlus, Menu, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSidebar } from "@/components/dashboard/sidebar-context";
+import {
+  CreateItemDialog,
+  type CreatableType,
+} from "@/components/items/CreateItemDialog";
 
 // Top bar for the dashboard shell.
-// The search and action buttons are display-only; the menu button opens the
-// sidebar drawer on mobile (desktop collapse lives inside the sidebar itself).
-export function TopBar() {
+// The search + New Collection buttons are display-only; the menu button opens
+// the sidebar drawer on mobile (desktop collapse lives inside the sidebar). The
+// New Item button opens the create-item modal.
+export function TopBar({ createTypes }: { createTypes: CreatableType[] }) {
   const { toggleMobile } = useSidebar();
 
   return (
@@ -51,10 +56,7 @@ export function TopBar() {
           <FolderPlus />
           New Collection
         </Button>
-        <Button size="sm" disabled>
-          <Plus />
-          New Item
-        </Button>
+        <CreateItemDialog types={createTypes} />
       </div>
     </header>
   );
