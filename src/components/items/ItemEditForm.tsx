@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { CodeEditor } from "@/components/items/CodeEditor";
 
 // Controlled edit-form state — all strings (raw input values). The server action
 // normalizes empties to null and splits the comma-separated tags.
@@ -18,6 +19,8 @@ export interface ItemEditState {
 // Which optional fields a given item type exposes (per the spec's table).
 const CONTENT_TYPES = new Set(["snippet", "prompt", "command", "note"]);
 const LANGUAGE_TYPES = new Set(["snippet", "command"]);
+// Code types get the Monaco editor for their content; the rest keep a Textarea.
+const CODE_TYPES = new Set(["snippet", "command"]);
 
 export function initialEditState(detail: {
   title: string;
@@ -55,6 +58,7 @@ export function ItemEditForm({ typeName, value, onChange }: ItemEditFormProps) {
   const showContent = CONTENT_TYPES.has(typeName);
   const showLanguage = LANGUAGE_TYPES.has(typeName);
   const showUrl = typeName === "link";
+  const useCodeEditor = CODE_TYPES.has(typeName);
 
   return (
     <div className="space-y-5">
@@ -80,14 +84,22 @@ export function ItemEditForm({ typeName, value, onChange }: ItemEditFormProps) {
 
       {showContent && (
         <Field id="item-content" label="Content">
-          <Textarea
-            id="item-content"
-            value={value.content}
-            onChange={(e) => set("content", e.target.value)}
-            placeholder="Content"
-            rows={8}
-            className="font-mono text-xs leading-relaxed"
-          />
+          {useCodeEditor ? (
+            <CodeEditor
+              value={value.content}
+              language={value.language}
+              onChange={(next) => set("content", next)}
+            />
+          ) : (
+            <Textarea
+              id="item-content"
+              value={value.content}
+              onChange={(e) => set("content", e.target.value)}
+              placeholder="Content"
+              rows={8}
+              className="font-mono text-xs leading-relaxed"
+            />
+          )}
         </Field>
       )}
 

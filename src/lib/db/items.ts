@@ -408,3 +408,27 @@ export async function getSidebarItemTypes(): Promise<SidebarItemType[]> {
     }))
     .sort((a, b) => TYPE_ORDER.indexOf(a.name) - TYPE_ORDER.indexOf(b.name));
 }
+
+// A creatable item type descriptor for the "New Item" modal's type selector.
+export interface CreatableType {
+  name: string; // raw type name, e.g. "snippet" — must match the server enum
+  label: string; // singular display label, e.g. "Snippet"
+  icon: string; // Lucide icon name, e.g. "Code"
+  color: string; // hex, e.g. "#3b82f6"
+}
+
+// The types the "New Item" modal can create: the 5 TEXT/URL system types
+// (file/image need R2 upload, so they're excluded). Derived from already-fetched
+// item types with singular labels, so callers don't run an extra query.
+export function toCreatableTypes(
+  types: { name: string; icon: string; color: string }[],
+): CreatableType[] {
+  return types
+    .filter((type) => type.name !== "file" && type.name !== "image")
+    .map((type) => ({
+      name: type.name,
+      label: toLabel(type.name),
+      icon: type.icon,
+      color: type.color,
+    }));
+}

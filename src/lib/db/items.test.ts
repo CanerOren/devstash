@@ -47,6 +47,7 @@ import {
   createItem,
   updateItem,
   deleteItem,
+  toCreatableTypes,
 } from "@/lib/db/items";
 
 // A full prisma row as returned by getItemDetail's include shape.
@@ -333,5 +334,30 @@ describe("getItemsByType", () => {
         where: { userId: "user_1", itemTypeId: "t_snippet" },
       }),
     );
+  });
+});
+
+describe("toCreatableTypes", () => {
+  const types = [
+    { name: "snippet", icon: "Code", color: "#3b82f6" },
+    { name: "note", icon: "StickyNote", color: "#fde047" },
+    { name: "file", icon: "File", color: "#6b7280" },
+    { name: "image", icon: "Image", color: "#ec4899" },
+    { name: "link", icon: "Link", color: "#10b981" },
+  ];
+
+  it("excludes the non-creatable file and image types", () => {
+    const names = toCreatableTypes(types).map((t) => t.name);
+    expect(names).toEqual(["snippet", "note", "link"]);
+  });
+
+  it("derives a singular capitalized label and carries icon/color through", () => {
+    const [snippet] = toCreatableTypes(types);
+    expect(snippet).toEqual({
+      name: "snippet",
+      label: "Snippet",
+      icon: "Code",
+      color: "#3b82f6",
+    });
   });
 });

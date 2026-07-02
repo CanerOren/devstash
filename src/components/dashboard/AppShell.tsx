@@ -3,7 +3,7 @@ import { SidebarProvider } from "@/components/dashboard/sidebar-context";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { ItemDrawerProvider } from "@/components/items/item-drawer-context";
 import { Toaster } from "@/components/ui/sonner";
-import { getSidebarItemTypes } from "@/lib/db/items";
+import { getSidebarItemTypes, toCreatableTypes } from "@/lib/db/items";
 import { getSidebarCollections } from "@/lib/db/collections";
 import { getCurrentUser } from "@/lib/db/user";
 
@@ -22,17 +22,9 @@ export async function AppShell({
     getCurrentUser(),
   ]);
 
-  // The types the "New Item" modal can create: the 5 TEXT/URL system types
-  // (file/image need R2 upload, so they're excluded). Singular labels for the
-  // selector; icon/color come straight from the DB-sourced sidebar types.
-  const createTypes = itemTypes
-    .filter((type) => type.name !== "file" && type.name !== "image")
-    .map((type) => ({
-      name: type.name,
-      label: type.name.charAt(0).toUpperCase() + type.name.slice(1),
-      icon: type.icon,
-      color: type.color,
-    }));
+  // The types the "New Item" modal can create (the 5 TEXT/URL system types),
+  // derived from the already-fetched sidebar types — no extra query.
+  const createTypes = toCreatableTypes(itemTypes);
 
   return (
     <SidebarProvider>

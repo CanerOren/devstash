@@ -1,9 +1,14 @@
 import { createElement } from "react";
 import { notFound } from "next/navigation";
 
-import { getItemsByType } from "@/lib/db/items";
+import {
+  getItemsByType,
+  getSidebarItemTypes,
+  toCreatableTypes,
+} from "@/lib/db/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { ItemCard } from "@/components/dashboard/ItemCard";
+import { CreateItemDialog } from "@/components/items/CreateItemDialog";
 
 // Reads live per-user data, so render on each request rather than prerendering.
 export const dynamic = "force-dynamic";
@@ -15,11 +20,19 @@ export default async function ItemsByTypePage({
   params: Promise<{ type: string }>;
 }) {
   const { type } = await params;
-  const result = await getItemsByType(type);
+  const [result, itemTypes] = await Promise.all([
+    getItemsByType(type),
+    getSidebarItemTypes(),
+  ]);
   if (!result) notFound();
 
   const { type: itemType, items } = result;
   const pluralLabel = `${itemType.label}s`;
+
+  // Preselect this type in the create modal, unless it's a non-creatable
+  // (Pro-only file/image) type — those need R2 upload and have no add button.
+  const createTypes = toCreatableTypes(itemTypes);
+  const canCreate = createTypes.some((t) => t.name === itemType.name);
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -42,6 +55,15 @@ export default async function ItemsByTypePage({
             {items.length} {items.length === 1 ? "item" : "items"}
           </p>
         </div>
+        {canCreate && (
+          <div className="ml-auto">
+            <CreateItemDialog
+              types={createTypes}
+              defaultType={itemType.name}
+              triggerLabel={`New ${itemType.label}`}
+            />
+          </div>
+        )}
       </div>
 
       {/* Items grid */}
