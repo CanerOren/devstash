@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CodeEditor } from "@/components/items/CodeEditor";
+import { MarkdownEditor } from "@/components/items/MarkdownEditor";
 
 // Controlled edit-form state — all strings (raw input values). The server action
 // normalizes empties to null and splits the comma-separated tags.
@@ -19,8 +20,10 @@ export interface ItemEditState {
 // Which optional fields a given item type exposes (per the spec's table).
 const CONTENT_TYPES = new Set(["snippet", "prompt", "command", "note"]);
 const LANGUAGE_TYPES = new Set(["snippet", "command"]);
-// Code types get the Monaco editor for their content; the rest keep a Textarea.
+// Code types get the Monaco editor for their content; markdown types (note,
+// prompt) get the Markdown editor; the rest keep a plain Textarea.
 const CODE_TYPES = new Set(["snippet", "command"]);
+const MARKDOWN_TYPES = new Set(["note", "prompt"]);
 
 export function initialEditState(detail: {
   title: string;
@@ -59,6 +62,7 @@ export function ItemEditForm({ typeName, value, onChange }: ItemEditFormProps) {
   const showLanguage = LANGUAGE_TYPES.has(typeName);
   const showUrl = typeName === "link";
   const useCodeEditor = CODE_TYPES.has(typeName);
+  const useMarkdownEditor = MARKDOWN_TYPES.has(typeName);
 
   return (
     <div className="space-y-5">
@@ -88,6 +92,11 @@ export function ItemEditForm({ typeName, value, onChange }: ItemEditFormProps) {
             <CodeEditor
               value={value.content}
               language={value.language}
+              onChange={(next) => set("content", next)}
+            />
+          ) : useMarkdownEditor ? (
+            <MarkdownEditor
+              value={value.content}
               onChange={(next) => set("content", next)}
             />
           ) : (
