@@ -6,10 +6,8 @@ import { FolderPlus, Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSidebar } from "@/components/dashboard/sidebar-context";
-import {
-  CreateItemDialog,
-  type CreatableType,
-} from "@/components/items/CreateItemDialog";
+import { CreateItemDialog } from "@/components/items/CreateItemDialog";
+import type { CreatableType } from "@/lib/db/items";
 
 // Top bar for the dashboard shell.
 // The search + New Collection buttons are display-only; the menu button opens

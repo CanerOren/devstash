@@ -26,6 +26,7 @@ import {
   initialEditState,
   type ItemEditState,
 } from "@/components/items/ItemEditForm";
+import { CodeEditor } from "@/components/items/CodeEditor";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -370,9 +371,12 @@ function DetailRow({ term, value }: { term: string; value: string }) {
   );
 }
 
-// Renders the item's content per its content type: a code/text block for TEXT,
-// the link for URL items, and file info for FILE items. Syntax highlighting and
-// the code editor are deferred to a later feature.
+// Code types get the Monaco editor for their content; the rest keep a plain block.
+const CODE_TYPES = new Set(["snippet", "command"]);
+
+// Renders the item's content per its content type: the Monaco code editor for
+// snippet/command TEXT items, a plain block for other text, the link for URL
+// items, and file info for FILE items.
 function ContentBlock({ detail }: { detail: ItemDetailResponse | null }) {
   if (!detail) return null;
 
@@ -400,6 +404,11 @@ function ContentBlock({ detail }: { detail: ItemDetailResponse | null }) {
   }
 
   if (detail.content) {
+    if (CODE_TYPES.has(detail.type.name)) {
+      return (
+        <CodeEditor value={detail.content} language={detail.language} readOnly />
+      );
+    }
     return (
       <pre className="overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-xs leading-relaxed">
         <code>{detail.content}</code>

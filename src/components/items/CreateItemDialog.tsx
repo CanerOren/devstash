@@ -23,14 +23,7 @@ import {
   type ItemEditState,
 } from "@/components/items/ItemEditForm";
 import { createItem } from "@/actions/items";
-
-// A creatable item type descriptor for the type selector (5 TEXT/URL types).
-export interface CreatableType {
-  name: string; // raw type name, e.g. "snippet" — must match the server enum
-  label: string; // display label, e.g. "Snippet"
-  icon: string; // Lucide icon name, e.g. "Code"
-  color: string; // hex, e.g. "#3b82f6"
-}
+import type { CreatableType } from "@/lib/db/items";
 
 const BLANK_FORM: ItemEditState = {
   title: "",
@@ -41,21 +34,40 @@ const BLANK_FORM: ItemEditState = {
   tags: "",
 };
 
-// The "New Item" button + its create modal. Opened from the top bar. Reuses the
-// drawer's ItemEditForm for the fields, with a type selector on top; on success
-// it toasts, closes, and refreshes the page so the new item appears in the lists.
-export function CreateItemDialog({ types }: { types: CreatableType[] }) {
+interface CreateItemDialogProps {
+  types: CreatableType[];
+  // Type to preselect when the dialog opens (e.g. the current /items/[type]
+  // page). Falls back to the first creatable type.
+  defaultType?: string;
+  // Label for the trigger button (e.g. "New Snippet"). Defaults to "New Item".
+  triggerLabel?: string;
+}
+
+// The "New Item" button + its create modal. Opened from the top bar (and the
+// type pages). Reuses the drawer's ItemEditForm for the fields, with a type
+// selector on top; on success it toasts, closes, and refreshes the page so the
+// new item appears in the lists.
+export function CreateItemDialog({
+  types,
+  defaultType,
+  triggerLabel = "New Item",
+}: CreateItemDialogProps) {
   const router = useRouter();
+  // The preselected type, if it's actually creatable; else the first one.
+  const initialType =
+    (defaultType && types.some((t) => t.name === defaultType)
+      ? defaultType
+      : types[0]?.name) ?? "snippet";
   const [open, setOpen] = useState(false);
-  const [type, setType] = useState(types[0]?.name ?? "snippet");
+  const [type, setType] = useState(initialType);
   const [form, setForm] = useState<ItemEditState>(BLANK_FORM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function handleOpenChange(next: boolean) {
-    // Reset to a blank form each time the dialog opens.
+    // Reset to a blank form (and the preselected type) each time it opens.
     if (next) {
-      setType(types[0]?.name ?? "snippet");
+      setType(initialType);
       setForm(BLANK_FORM);
       setError(null);
     }
@@ -101,7 +113,7 @@ export function CreateItemDialog({ types }: { types: CreatableType[] }) {
       <DialogTrigger asChild>
         <Button size="sm">
           <Plus />
-          New Item
+          {triggerLabel}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
