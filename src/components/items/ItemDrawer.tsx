@@ -406,7 +406,9 @@ function ContentBlock({ detail }: { detail: ItemDetailResponse | null }) {
         {isImage && detail.fileUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={detail.fileUrl}
+            // Served through our origin (streams from R2's S3 endpoint) rather
+            // than the flaky public r2.dev URL.
+            src={`/api/items/${detail.id}/image`}
             alt={detail.fileName ?? detail.title}
             className="max-h-96 w-auto max-w-full rounded-lg border border-border object-contain"
           />

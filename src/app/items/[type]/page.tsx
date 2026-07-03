@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { ItemCard } from "@/components/dashboard/ItemCard";
+import { ImageCard } from "@/components/items/ImageCard";
 import { CreateItemDialog } from "@/components/items/CreateItemDialog";
 
 // Reads live per-user data, so render on each request rather than prerendering.
@@ -28,6 +29,9 @@ export default async function ItemsByTypePage({
 
   const { type: itemType, items } = result;
   const pluralLabel = `${itemType.label}s`;
+
+  // Image items render as a thumbnail gallery instead of the standard list card.
+  const isImageGallery = itemType.name === "image";
 
   // Preselect this type in the create modal. All system types are creatable
   // (file/image via R2 upload); the guard stays as defense in case that changes.
@@ -69,9 +73,13 @@ export default async function ItemsByTypePage({
       {/* Items grid */}
       {items.length > 0 ? (
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) => (
-            <ItemCard key={item.id} item={item} />
-          ))}
+          {items.map((item) =>
+            isImageGallery ? (
+              <ImageCard key={item.id} item={item} />
+            ) : (
+              <ItemCard key={item.id} item={item} />
+            ),
+          )}
         </div>
       ) : (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">

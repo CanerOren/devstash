@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { File as FileIcon, Loader2, UploadCloud, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -49,6 +49,15 @@ export function FileUpload({ category, value, onChange }: FileUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  // Local object URL for the image preview — avoids fetching the (flaky) public
+  // R2 URL for a file we already have in hand. Revoked when it changes/unmounts.
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
 
   const constraint = FILE_CONSTRAINTS[category];
 
@@ -65,6 +74,9 @@ export function FileUpload({ category, value, onChange }: FileUploadProps) {
     setError(null);
     setUploading(true);
     setProgress(0);
+    if (category === "image") {
+      setPreviewUrl(URL.createObjectURL(file));
+    }
 
     const formData = new FormData();
     formData.append("file", file);
@@ -122,6 +134,7 @@ export function FileUpload({ category, value, onChange }: FileUploadProps) {
     onChange(null);
     setError(null);
     setProgress(0);
+    setPreviewUrl(null);
   }
 
   // Uploaded — show a preview (image) or file-info card, with a remove button.
@@ -132,7 +145,7 @@ export function FileUpload({ category, value, onChange }: FileUploadProps) {
           {category === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={value.fileUrl}
+              src={previewUrl ?? value.fileUrl}
               alt={value.fileName}
               className="size-16 shrink-0 rounded-md border border-border object-cover"
             />
