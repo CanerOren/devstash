@@ -47,6 +47,9 @@ function createInput(overrides: Record<string, unknown> = {}) {
     content: "",
     url: "",
     language: "",
+    fileUrl: "",
+    fileName: "",
+    fileSize: null,
     tags: [] as string[],
     ...overrides,
   };
@@ -60,9 +63,16 @@ describe("createItem action — validation", () => {
     expect(createItemQuery).not.toHaveBeenCalled();
   });
 
-  it("rejects an unknown / non-creatable type", async () => {
-    const result = await createItem(createInput({ type: "image" }));
+  it("rejects an unknown type", async () => {
+    const result = await createItem(createInput({ type: "bogus" }));
     expect(result.success).toBe(false);
+    expect(createItemQuery).not.toHaveBeenCalled();
+  });
+
+  it("requires an uploaded file for file/image items", async () => {
+    const result = await createItem(createInput({ type: "image", fileUrl: "" }));
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("A file is required");
     expect(createItemQuery).not.toHaveBeenCalled();
   });
 
@@ -95,8 +105,36 @@ describe("createItem action — normalization", () => {
       content: "  code  ", // not trimmed — code whitespace is significant
       url: null, // snippet is not a link
       language: null,
+      fileUrl: null, // snippet is not a file type
+      fileName: null,
+      fileSize: null,
       tags: ["a"],
     });
+  });
+
+  it("keeps file metadata and nulls content/url/language for file/image items", async () => {
+    await createItem(
+      createInput({
+        type: "image",
+        content: "ignored",
+        language: "ignored",
+        url: "https://ignored.example.com",
+        fileUrl: "https://cdn.example.com/user_1/abc-logo.png",
+        fileName: "logo.png",
+        fileSize: 2048,
+      }),
+    );
+    expect(createItemQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        typeName: "image",
+        content: null,
+        language: null,
+        url: null,
+        fileUrl: "https://cdn.example.com/user_1/abc-logo.png",
+        fileName: "logo.png",
+        fileSize: 2048,
+      }),
+    );
   });
 
   it("keeps the url and nulls content/language for link items", async () => {

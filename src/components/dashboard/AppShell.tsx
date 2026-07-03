@@ -22,8 +22,9 @@ export async function AppShell({
     getCurrentUser(),
   ]);
 
-  // The types the "New Item" modal can create (the 5 TEXT/URL system types),
-  // derived from the already-fetched sidebar types — no extra query.
+  // The types the "New Item" modal can create (all 7 system types; file/image
+  // via R2 upload), derived from the already-fetched sidebar types — no extra
+  // query.
   const createTypes = toCreatableTypes(itemTypes);
 
   return (

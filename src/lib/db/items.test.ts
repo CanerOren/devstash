@@ -12,6 +12,7 @@ const {
   itemDelete,
   itemTypeFindMany,
   itemTypeFindFirst,
+  deleteFromR2ByUrl,
 } = vi.hoisted(() => ({
   findFirst: vi.fn(),
   itemFindMany: vi.fn(),
@@ -20,6 +21,7 @@ const {
   itemDelete: vi.fn(),
   itemTypeFindMany: vi.fn(),
   itemTypeFindFirst: vi.fn(),
+  deleteFromR2ByUrl: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -41,6 +43,10 @@ vi.mock("@/lib/db/helpers", () => ({
   toLabel: (name: string) => name.charAt(0).toUpperCase() + name.slice(1),
 }));
 
+// r2.ts pulls in @aws-sdk/client-s3; mock it so deleteItem's cleanup is
+// observable without touching storage.
+vi.mock("@/lib/r2", () => ({ deleteFromR2ByUrl }));
+
 import {
   getItemDetail,
   getItemsByType,
@@ -59,6 +65,7 @@ function detailRow() {
     contentType: "TEXT" as const,
     content: "export function useAuth() {}",
     url: null,
+    fileUrl: null,
     fileName: null,
     fileSize: null,
     language: "typescript",
@@ -101,6 +108,7 @@ describe("getItemDetail", () => {
       contentType: "TEXT",
       content: "export function useAuth() {}",
       url: null,
+      fileUrl: null,
       fileName: null,
       fileSize: null,
       language: "typescript",
@@ -128,6 +136,9 @@ describe("createItem", () => {
     content: "code",
     url: null,
     language: "typescript",
+    fileUrl: null,
+    fileName: null,
+    fileSize: null,
     tags: ["react", "hooks"],
   };
 
@@ -154,6 +165,9 @@ describe("createItem", () => {
         content: "code",
         url: null,
         language: "typescript",
+        fileUrl: null,
+        fileName: null,
+        fileSize: null,
         contentType: "TEXT",
         userId: "user_1",
         itemTypeId: "t_snippet",
@@ -196,6 +210,9 @@ describe("createItem", () => {
       content: null,
       url: "https://example.com",
       language: null,
+      fileUrl: null,
+      fileName: null,
+      fileSize: null,
       tags: [],
     });
 
@@ -205,6 +222,37 @@ describe("createItem", () => {
           contentType: "URL",
           url: "https://example.com",
           itemTypeId: "t_link",
+        }),
+      }),
+    );
+  });
+
+  it("derives contentType FILE for file/image and persists the R2 metadata", async () => {
+    itemTypeFindFirst.mockResolvedValue({ id: "t_image" });
+    itemCreate.mockResolvedValue({ id: "item_3" });
+    findFirst.mockResolvedValue(detailRow());
+
+    await createItem({
+      typeName: "image",
+      title: "Logo",
+      description: null,
+      content: null,
+      url: null,
+      language: null,
+      fileUrl: "https://cdn.example.com/user_1/abc-logo.png",
+      fileName: "logo.png",
+      fileSize: 2048,
+      tags: [],
+    });
+
+    expect(itemCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          contentType: "FILE",
+          fileUrl: "https://cdn.example.com/user_1/abc-logo.png",
+          fileName: "logo.png",
+          fileSize: 2048,
+          itemTypeId: "t_image",
         }),
       }),
     );
@@ -287,11 +335,28 @@ describe("deleteItem", () => {
   });
 
   it("deletes by id and returns true when the item is the user's", async () => {
-    findFirst.mockResolvedValue({ id: "item_1" }); // ownership check passes
+    // No fileUrl → nothing to clean up in R2.
+    findFirst.mockResolvedValue({ id: "item_1", fileUrl: null });
     itemDelete.mockResolvedValue({ id: "item_1" });
 
     expect(await deleteItem("item_1")).toBe(true);
     expect(itemDelete).toHaveBeenCalledWith({ where: { id: "item_1" } });
+    expect(deleteFromR2ByUrl).not.toHaveBeenCalled();
+  });
+
+  it("removes the backing R2 object after deleting a FILE item's row", async () => {
+    findFirst.mockResolvedValue({
+      id: "item_1",
+      fileUrl: "https://cdn.example.com/user_1/abc-logo.png",
+    });
+    itemDelete.mockResolvedValue({ id: "item_1" });
+
+    expect(await deleteItem("item_1")).toBe(true);
+    // Row deleted first, then the object (best-effort).
+    expect(itemDelete).toHaveBeenCalledWith({ where: { id: "item_1" } });
+    expect(deleteFromR2ByUrl).toHaveBeenCalledWith(
+      "https://cdn.example.com/user_1/abc-logo.png",
+    );
   });
 });
 
@@ -346,9 +411,10 @@ describe("toCreatableTypes", () => {
     { name: "link", icon: "Link", color: "#10b981" },
   ];
 
-  it("excludes the non-creatable file and image types", () => {
+  it("includes all system types (file/image included) in canonical order", () => {
     const names = toCreatableTypes(types).map((t) => t.name);
-    expect(names).toEqual(["snippet", "note", "link"]);
+    // TYPE_ORDER: snippet → note → file → image → link (of the ones passed).
+    expect(names).toEqual(["snippet", "note", "file", "image", "link"]);
   });
 
   it("derives a singular capitalized label and carries icon/color through", () => {

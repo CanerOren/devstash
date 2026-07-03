@@ -6,7 +6,9 @@ import { toast } from "sonner";
 import {
   Check,
   Copy,
+  Download,
   ExternalLink,
+  FileText,
   Loader2,
   Pencil,
   Pin,
@@ -398,11 +400,41 @@ function ContentBlock({ detail }: { detail: ItemDetailResponse | null }) {
   }
 
   if (detail.contentType === "FILE") {
+    const isImage = detail.type.name === "image";
     return (
-      <p className="text-sm text-muted-foreground">
-        {detail.fileName ?? "Attached file"}
-        {detail.fileSize != null && ` · ${formatFileSize(detail.fileSize)}`}
-      </p>
+      <div className="space-y-3">
+        {isImage && detail.fileUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={detail.fileUrl}
+            alt={detail.fileName ?? detail.title}
+            className="max-h-96 w-auto max-w-full rounded-lg border border-border object-contain"
+          />
+        )}
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted/50">
+              <FileText className="size-4 text-muted-foreground" />
+            </span>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                {detail.fileName ?? "Attached file"}
+              </p>
+              {detail.fileSize != null && (
+                <p className="text-xs text-muted-foreground">
+                  {formatFileSize(detail.fileSize)}
+                </p>
+              )}
+            </div>
+          </div>
+          <Button asChild size="sm" variant="outline">
+            <a href={`/api/items/${detail.id}/download`} download>
+              <Download className="size-4" />
+              Download
+            </a>
+          </Button>
+        </div>
+      </div>
     );
   }
 
