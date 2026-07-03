@@ -29,11 +29,22 @@ const nullableUrl = z.preprocess(
   z.union([z.string().url("Enter a valid URL"), z.null()]),
 );
 
-// The 5 creatable types (TEXT/URL). File/image need R2 upload — out of scope.
-const CREATABLE_TYPES = ["snippet", "prompt", "command", "note", "link"] as const;
-// Which types keep a `content` body, and which keep a `language`, per the spec.
+// All 7 creatable types. TEXT/URL types use the plain fields; file/image carry
+// R2 object metadata (fileUrl/fileName/fileSize) from the upload route.
+const CREATABLE_TYPES = [
+  "snippet",
+  "prompt",
+  "command",
+  "note",
+  "link",
+  "file",
+  "image",
+] as const;
+// Which types keep a `content` body, which keep a `language`, and which are
+// file-backed, per the spec.
 const CONTENT_TYPE_NAMES = new Set(["snippet", "prompt", "command", "note"]);
 const LANGUAGE_TYPE_NAMES = new Set(["snippet", "command"]);
+const FILE_TYPE_NAMES = new Set(["file", "image"]);
 
 const createItemSchema = z
   .object({
@@ -43,6 +54,12 @@ const createItemSchema = z
     content: nullableText,
     url: nullableUrl,
     language: nullableText,
+    fileUrl: nullableUrl,
+    fileName: nullableText,
+    fileSize: z.preprocess(
+      (v) => (v === "" || v == null ? null : v),
+      z.union([z.number().int().nonnegative(), z.null()]),
+    ),
     tags: z
       .array(z.string())
       .default([])
@@ -52,11 +69,16 @@ const createItemSchema = z
   .refine((data) => data.type !== "link" || data.url !== null, {
     message: "URL is required",
     path: ["url"],
+  })
+  // File/image items must have an uploaded file.
+  .refine((data) => !FILE_TYPE_NAMES.has(data.type) || data.fileUrl !== null, {
+    message: "A file is required",
+    path: ["fileUrl"],
   });
 
 // `type` is widened to string so callers (the client dialog's type state) don't
 // need to pre-narrow it — the Zod enum is the runtime gate that rejects anything
-// outside the 5 creatable types.
+// outside the creatable types.
 export type CreateItemInput = Omit<z.input<typeof createItemSchema>, "type"> & {
   type: string;
 };
@@ -67,11 +89,12 @@ export interface CreateItemResult {
   error?: string;
 }
 
-// Creates a new item of one of the 5 creatable types. Validates with Zod (the
-// source of truth), nulls out fields that don't apply to the chosen type (so a
-// value typed before switching type isn't persisted), then delegates to the
-// query layer, which resolves the type + derives contentType and enforces the
-// user scope. A null result means the system type is missing (unseeded DB).
+// Creates a new item of one of the creatable types (all 7 system types).
+// Validates with Zod (the source of truth), nulls out fields that don't apply to
+// the chosen type (so a value typed before switching type isn't persisted), then
+// delegates to the query layer, which resolves the type + derives contentType and
+// enforces the user scope. A null result means the system type is missing
+// (unseeded DB).
 export async function createItem(
   input: CreateItemInput,
 ): Promise<CreateItemResult> {
@@ -85,6 +108,7 @@ export async function createItem(
     }
 
     const { type } = parsed.data;
+    const isFileType = FILE_TYPE_NAMES.has(type);
     const data: CreateItemData = {
       typeName: type,
       title: parsed.data.title,
@@ -92,6 +116,9 @@ export async function createItem(
       content: CONTENT_TYPE_NAMES.has(type) ? parsed.data.content : null,
       url: type === "link" ? parsed.data.url : null,
       language: LANGUAGE_TYPE_NAMES.has(type) ? parsed.data.language : null,
+      fileUrl: isFileType ? parsed.data.fileUrl : null,
+      fileName: isFileType ? parsed.data.fileName : null,
+      fileSize: isFileType ? parsed.data.fileSize : null,
       // Dedupe so two identical tags don't collide on the ItemTag composite key.
       tags: [...new Set(parsed.data.tags)],
     };

@@ -29,8 +29,8 @@ export default async function ItemsByTypePage({
   const { type: itemType, items } = result;
   const pluralLabel = `${itemType.label}s`;
 
-  // Preselect this type in the create modal, unless it's a non-creatable
-  // (Pro-only file/image) type — those need R2 upload and have no add button.
+  // Preselect this type in the create modal. All system types are creatable
+  // (file/image via R2 upload); the guard stays as defense in case that changes.
   const createTypes = toCreatableTypes(itemTypes);
   const canCreate = createTypes.some((t) => t.name === itemType.name);
 

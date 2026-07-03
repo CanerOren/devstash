@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUserId, toLabel } from "@/lib/db/helpers";
+import { deleteFromR2ByUrl } from "@/lib/r2";
 
 // The item type an item belongs to, used for the card's icon/border.
 export interface DashboardItemType {
@@ -36,6 +37,7 @@ export interface ItemDetail {
   contentType: "TEXT" | "FILE" | "URL";
   content: string | null;
   url: string | null;
+  fileUrl: string | null;
   fileName: string | null;
   fileSize: number | null;
   language: string | null;
@@ -211,6 +213,7 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
     contentType: item.contentType,
     content: item.content,
     url: item.url,
+    fileUrl: item.fileUrl,
     fileName: item.fileName,
     fileSize: item.fileSize,
     language: item.language,
@@ -241,15 +244,19 @@ export interface CreateItemData {
   content: string | null;
   url: string | null;
   language: string | null;
+  // File/image types only — the R2 object metadata from the upload route.
+  fileUrl: string | null;
+  fileName: string | null;
+  fileSize: number | null;
   tags: string[];
 }
 
 // Creates an item of a system type for the current user and returns its full
-// ItemDetail. Resolves the item type by its raw name (the 5 creatable TEXT/URL
-// types) and derives contentType from it (URL for links, TEXT otherwise).
-// Returns null when the type name doesn't match a system item type (the caller
-// turns that into an error). Tags connect-or-create by (name, userId) so they're
-// reused across items, matching updateItem.
+// ItemDetail. Resolves the item type by its raw name and derives contentType
+// from it: URL for links, FILE for file/image, TEXT otherwise. Returns null when
+// the type name doesn't match a system item type (the caller turns that into an
+// error). Tags connect-or-create by (name, userId) so they're reused across
+// items, matching updateItem.
 export async function createItem(
   data: CreateItemData,
 ): Promise<ItemDetail | null> {
@@ -261,7 +268,12 @@ export async function createItem(
   });
   if (!itemType) return null;
 
-  const contentType = data.typeName === "link" ? "URL" : "TEXT";
+  const contentType =
+    data.typeName === "link"
+      ? "URL"
+      : data.typeName === "file" || data.typeName === "image"
+        ? "FILE"
+        : "TEXT";
 
   const created = await prisma.item.create({
     data: {
@@ -270,6 +282,9 @@ export async function createItem(
       content: data.content,
       url: data.url,
       language: data.language,
+      fileUrl: data.fileUrl,
+      fileName: data.fileName,
+      fileSize: data.fileSize,
       contentType,
       userId,
       itemTypeId: itemType.id,
@@ -350,19 +365,26 @@ export async function updateItem(
 // Deletes one of the current user's items. Scoped to the session user via an
 // ownership check; returns false when the id isn't the user's (the caller turns
 // that into a "not found" error), true when the delete succeeds. ItemCollection
-// and ItemTag join rows cascade on delete, so no manual cleanup is needed.
+// and ItemTag join rows cascade on delete, so no manual cleanup is needed. For
+// FILE items, the backing R2 object is removed best-effort after the row is
+// deleted (a storage hiccup won't fail the delete or leave a dangling row).
 export async function deleteItem(id: string): Promise<boolean> {
   const userId = await requireUserId();
 
   // Ownership check — `delete`'s where only takes the unique id, so we verify
-  // the item belongs to the session user first.
+  // the item belongs to the session user first. Grab fileUrl for R2 cleanup.
   const existing = await prisma.item.findFirst({
     where: { id, userId },
-    select: { id: true },
+    select: { id: true, fileUrl: true },
   });
   if (!existing) return false;
 
   await prisma.item.delete({ where: { id } });
+
+  if (existing.fileUrl) {
+    await deleteFromR2ByUrl(existing.fileUrl);
+  }
+
   return true;
 }
 
@@ -417,18 +439,19 @@ export interface CreatableType {
   color: string; // hex, e.g. "#3b82f6"
 }
 
-// The types the "New Item" modal can create: the 5 TEXT/URL system types
-// (file/image need R2 upload, so they're excluded). Derived from already-fetched
-// item types with singular labels, so callers don't run an extra query.
+// The types the "New Item" modal can create: all 7 system types. The 5 TEXT/URL
+// types use the plain fields; file/image use the FileUpload (R2). Derived from
+// already-fetched item types with singular labels, so callers don't run an extra
+// query. Ordered by the canonical sidebar TYPE_ORDER for a stable pill order.
 export function toCreatableTypes(
   types: { name: string; icon: string; color: string }[],
 ): CreatableType[] {
   return types
-    .filter((type) => type.name !== "file" && type.name !== "image")
     .map((type) => ({
       name: type.name,
       label: toLabel(type.name),
       icon: type.icon,
       color: type.color,
-    }));
+    }))
+    .sort((a, b) => TYPE_ORDER.indexOf(a.name) - TYPE_ORDER.indexOf(b.name));
 }

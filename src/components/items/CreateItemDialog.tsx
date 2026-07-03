@@ -22,8 +22,13 @@ import {
   ItemEditForm,
   type ItemEditState,
 } from "@/components/items/ItemEditForm";
+import {
+  FileUpload,
+  type UploadedFile,
+} from "@/components/items/FileUpload";
 import { createItem } from "@/actions/items";
 import type { CreatableType } from "@/lib/db/items";
+import { isFileCategory } from "@/lib/file-constraints";
 
 const BLANK_FORM: ItemEditState = {
   title: "",
@@ -61,23 +66,48 @@ export function CreateItemDialog({
   const [open, setOpen] = useState(false);
   const [type, setType] = useState(initialType);
   const [form, setForm] = useState<ItemEditState>(BLANK_FORM);
+  const [file, setFile] = useState<UploadedFile | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isFileType = isFileCategory(type);
 
   function handleOpenChange(next: boolean) {
     // Reset to a blank form (and the preselected type) each time it opens.
     if (next) {
       setType(initialType);
       setForm(BLANK_FORM);
+      setFile(null);
       setError(null);
     }
     setOpen(next);
+  }
+
+  // Switch types — reset the uploaded file so it can't leak onto a non-file type.
+  function handleTypeChange(next: string) {
+    setType(next);
+    setFile(null);
+    setError(null);
+  }
+
+  // When a file finishes uploading, default the title to its name (sans
+  // extension) if the user hasn't typed one yet.
+  function handleFileChange(next: UploadedFile | null) {
+    setFile(next);
+    if (next && !form.title.trim()) {
+      const base = next.fileName.replace(/\.[^.]+$/, "");
+      setForm((prev) => ({ ...prev, title: base }));
+    }
   }
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (!form.title.trim()) {
       setError("Title is required");
+      return;
+    }
+    if (isFileType && !file) {
+      setError("Please upload a file first.");
       return;
     }
 
@@ -90,6 +120,9 @@ export function CreateItemDialog({
       content: form.content,
       url: form.url,
       language: form.language,
+      fileUrl: file?.fileUrl ?? null,
+      fileName: file?.fileName ?? null,
+      fileSize: file?.fileSize ?? null,
       tags: form.tags
         .split(",")
         .map((tag) => tag.trim())
@@ -132,7 +165,7 @@ export function CreateItemDialog({
                   <button
                     key={t.name}
                     type="button"
-                    onClick={() => setType(t.name)}
+                    onClick={() => handleTypeChange(t.name)}
                     className={cn(
                       "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
                       selected
@@ -154,6 +187,17 @@ export function CreateItemDialog({
             </div>
           </div>
 
+          {isFileType && (
+            <div className="space-y-2">
+              <Label>{type === "image" ? "Image" : "File"}</Label>
+              <FileUpload
+                category={type === "image" ? "image" : "file"}
+                value={file}
+                onChange={handleFileChange}
+              />
+            </div>
+          )}
+
           <ItemEditForm typeName={type} value={form} onChange={setForm} />
 
           {error && <p className="text-sm text-destructive">{error}</p>}
@@ -167,7 +211,12 @@ export function CreateItemDialog({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting || !form.title.trim()}>
+            <Button
+              type="submit"
+              disabled={
+                submitting || !form.title.trim() || (isFileType && !file)
+              }
+            >
               {submitting ? "Creating..." : "Create item"}
             </Button>
           </DialogFooter>
