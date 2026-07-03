@@ -19,6 +19,7 @@ export interface DashboardItem {
   isFavorite: boolean;
   isPinned: boolean;
   createdAt: Date;
+  fileUrl: string | null; // R2 URL for FILE items (image thumbnails, etc.)
   tags: string[];
   type: DashboardItemType;
 }
@@ -90,6 +91,7 @@ type ItemRow = {
   isFavorite: boolean;
   isPinned: boolean;
   createdAt: Date;
+  fileUrl: string | null;
   itemType: { id: string; name: string; icon: string; color: string };
   tags: { tag: { name: string } }[];
 };
@@ -102,6 +104,7 @@ function toDashboardItem(item: ItemRow): DashboardItem {
     isFavorite: item.isFavorite,
     isPinned: item.isPinned,
     createdAt: item.createdAt,
+    fileUrl: item.fileUrl,
     tags: item.tags.map(({ tag }) => tag.name),
     type: {
       id: item.itemType.id,
