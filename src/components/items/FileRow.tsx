@@ -79,7 +79,14 @@ export function FileRow({ item }: { item: DashboardItem }) {
 
         {/* Info: stacks vertically on mobile, spreads into columns on sm+. */}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-4">
-          <span className="truncate text-sm font-medium sm:flex-1">{name}</span>
+          <span className="flex min-w-0 flex-col sm:flex-1">
+            <span className="truncate text-sm font-medium">{item.title}</span>
+            {item.fileName && (
+              <span className="truncate text-xs text-muted-foreground">
+                {item.fileName}
+              </span>
+            )}
+          </span>
           <span className="shrink-0 text-xs text-muted-foreground sm:w-20 sm:text-right">
             {formatFileSize(item.fileSize)}
           </span>
