@@ -20,6 +20,7 @@ import type { DashboardItem, ItemDetail } from "@/lib/db/items";
 import { updateItem, deleteItem } from "@/actions/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { cn } from "@/lib/utils";
+import { formatFileSize } from "@/lib/file-constraints";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -457,19 +458,6 @@ function ContentBlock({ detail }: { detail: ItemDetailResponse | null }) {
   }
 
   return <p className="text-sm text-muted-foreground">No content.</p>;
-}
-
-// Formats a byte count as a human-readable size, e.g. 2048 → "2.0 KB".
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let size = bytes / 1024;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${size.toFixed(1)} ${units[unit]}`;
 }
 
 // The action bar. Copy, Edit, and Delete are functional; favorite/pin reflect
