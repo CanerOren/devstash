@@ -6,6 +6,7 @@ import { Pin, Star } from "lucide-react";
 import type { DashboardItem } from "@/lib/db/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { useItemDrawer } from "@/components/items/item-drawer-context";
+import { CopyItemButton } from "@/components/items/CopyItemButton";
 
 // Formats a date as "Jan 15".
 function formatDate(date: Date): string {
@@ -22,15 +23,22 @@ export function ItemCard({ item }: { item: DashboardItem }) {
   const itemType = item.type;
   const { openItem } = useItemDrawer();
   return (
-    <button
-      type="button"
-      onClick={() => openItem(item)}
-      className="group flex w-full items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-accent/40"
+    <div
+      className="group relative flex w-full items-start gap-3 rounded-lg border border-border bg-card p-4 text-left transition-colors hover:bg-accent/40"
       // Item type color is data-driven, so the accent border must be inline.
       style={{ borderLeftColor: itemType.color, borderLeftWidth: 2 }}
     >
+      {/* Full-card click target (opens the drawer). Sits behind the content so
+          the copy button can be a sibling on top rather than a nested button. */}
+      <button
+        type="button"
+        onClick={() => openItem(item)}
+        aria-label={`Open ${item.title}`}
+        className="absolute inset-0 rounded-lg"
+      />
+
       <span
-        className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md"
+        className="pointer-events-none relative mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-md"
         style={{ backgroundColor: `${itemType.color}1a` }}
       >
         {createElement(getTypeIcon(itemType.icon), {
@@ -39,7 +47,7 @@ export function ItemCard({ item }: { item: DashboardItem }) {
         })}
       </span>
 
-      <div className="min-w-0 flex-1">
+      <div className="pointer-events-none relative min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <h4 className="truncate text-sm font-medium">{item.title}</h4>
           {item.isPinned && (
@@ -70,9 +78,11 @@ export function ItemCard({ item }: { item: DashboardItem }) {
         )}
       </div>
 
-      <time className="shrink-0 text-xs text-muted-foreground">
+      <CopyItemButton item={item} className="relative mt-0.5 shrink-0" />
+
+      <time className="pointer-events-none relative shrink-0 text-xs text-muted-foreground">
         {formatDate(item.createdAt)}
       </time>
-    </button>
+    </div>
   );
 }
