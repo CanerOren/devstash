@@ -9,6 +9,7 @@ import {
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { ItemCard } from "@/components/dashboard/ItemCard";
 import { ImageCard } from "@/components/items/ImageCard";
+import { FileRow } from "@/components/items/FileRow";
 import { CreateItemDialog } from "@/components/items/CreateItemDialog";
 
 // Reads live per-user data, so render on each request rather than prerendering.
@@ -32,6 +33,8 @@ export default async function ItemsByTypePage({
 
   // Image items render as a thumbnail gallery instead of the standard list card.
   const isImageGallery = itemType.name === "image";
+  // File items render as a single-column list (Drive/Dropbox style).
+  const isFileList = itemType.name === "file";
 
   // Preselect this type in the create modal. All system types are creatable
   // (file/image via R2 upload); the guard stays as defense in case that changes.
@@ -70,17 +73,26 @@ export default async function ItemsByTypePage({
         )}
       </div>
 
-      {/* Items grid */}
+      {/* Items — file items as a single-column list, images as a gallery grid,
+          everything else as the standard card grid. */}
       {items.length > 0 ? (
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {items.map((item) =>
-            isImageGallery ? (
-              <ImageCard key={item.id} item={item} />
-            ) : (
-              <ItemCard key={item.id} item={item} />
-            ),
-          )}
-        </div>
+        isFileList ? (
+          <div className="flex flex-col gap-2">
+            {items.map((item) => (
+              <FileRow key={item.id} item={item} />
+            ))}
+          </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {items.map((item) =>
+              isImageGallery ? (
+                <ImageCard key={item.id} item={item} />
+              ) : (
+                <ItemCard key={item.id} item={item} />
+              ),
+            )}
+          </div>
+        )
       ) : (
         <div className="rounded-lg border border-dashed border-border p-12 text-center">
           <p className="text-sm text-muted-foreground">
