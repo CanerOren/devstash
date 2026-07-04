@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 
 import {
   fileExtension,
+  formatFileSize,
   formatMaxSize,
   isFileCategory,
   validateFile,
@@ -36,6 +37,31 @@ describe("formatMaxSize", () => {
   it("formats byte limits as whole MB", () => {
     expect(formatMaxSize(FILE_CONSTRAINTS.image.maxSize)).toBe("5 MB");
     expect(formatMaxSize(FILE_CONSTRAINTS.file.maxSize)).toBe("10 MB");
+  });
+});
+
+describe("formatFileSize", () => {
+  it("scales the unit to the value", () => {
+    expect(formatFileSize(512)).toBe("512 B");
+    expect(formatFileSize(2048)).toBe("2 KB");
+    expect(formatFileSize(1.5 * 1024 * 1024)).toBe("1.5 MB");
+    expect(formatFileSize(3 * 1024 * 1024 * 1024)).toBe("3 GB");
+  });
+
+  it("drops the decimal when the rounded value is whole", () => {
+    expect(formatFileSize(1024)).toBe("1 KB");
+    expect(formatFileSize(1024 * 1024)).toBe("1 MB");
+  });
+
+  it("rounds to one decimal place", () => {
+    expect(formatFileSize(1536)).toBe("1.5 KB");
+    expect(formatFileSize(1740)).toBe("1.7 KB");
+  });
+
+  it("renders an em dash for null, undefined, or negative sizes", () => {
+    expect(formatFileSize(null)).toBe("—");
+    expect(formatFileSize(undefined)).toBe("—");
+    expect(formatFileSize(-1)).toBe("—");
   });
 });
 

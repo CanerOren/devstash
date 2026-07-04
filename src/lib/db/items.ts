@@ -20,6 +20,8 @@ export interface DashboardItem {
   isPinned: boolean;
   createdAt: Date;
   fileUrl: string | null; // R2 URL for FILE items (image thumbnails, etc.)
+  fileName: string | null; // original upload filename, for FILE items
+  fileSize: number | null; // bytes, for FILE items
   tags: string[];
   type: DashboardItemType;
 }
@@ -92,6 +94,8 @@ type ItemRow = {
   isPinned: boolean;
   createdAt: Date;
   fileUrl: string | null;
+  fileName: string | null;
+  fileSize: number | null;
   itemType: { id: string; name: string; icon: string; color: string };
   tags: { tag: { name: string } }[];
 };
@@ -105,6 +109,8 @@ function toDashboardItem(item: ItemRow): DashboardItem {
     isPinned: item.isPinned,
     createdAt: item.createdAt,
     fileUrl: item.fileUrl,
+    fileName: item.fileName,
+    fileSize: item.fileSize,
     tags: item.tags.map(({ tag }) => tag.name),
     type: {
       id: item.itemType.id,

@@ -73,6 +73,26 @@ export function formatMaxSize(bytes: number): string {
   return `${Math.round(bytes / MB)} MB`;
 }
 
+// Human-readable file size that scales the unit to the value, e.g. 512 → "512 B",
+// 2048 → "2 KB", 1.5 * 1024 * 1024 → "1.5 MB". One decimal for KB/MB, dropped
+// when whole. Null/undefined/negative sizes render as "—".
+export function formatFileSize(bytes: number | null | undefined): string {
+  if (bytes == null || bytes < 0) return "—";
+  if (bytes < 1024) return `${bytes} B`;
+
+  const units = ["KB", "MB", "GB"];
+  let size = bytes / 1024;
+  let unit = 0;
+  while (size >= 1024 && unit < units.length - 1) {
+    size /= 1024;
+    unit += 1;
+  }
+
+  const rounded = Math.round(size * 10) / 10;
+  const label = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return `${label} ${units[unit]}`;
+}
+
 // The `accept` attribute value for a file input of this category — the allowed
 // extensions and MIME types, comma-separated.
 export function acceptAttribute(category: FileCategory): string {
