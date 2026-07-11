@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { getItemDetail } from "@/lib/db/items";
+import { getItemFileRef } from "@/lib/db/items";
 import { getFromR2ByUrl } from "@/lib/r2";
 
 // Node runtime — the AWS S3 client streaming isn't edge-compatible.
@@ -20,7 +20,7 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const item = await getItemDetail(id);
+    const item = await getItemFileRef(id);
     if (!item || item.contentType !== "FILE" || !item.fileUrl) {
       return new Response("Not found", { status: 404 });
     }
@@ -36,6 +36,10 @@ export async function GET(
       object.ContentType ?? "application/octet-stream",
     );
     headers.set("Content-Disposition", "inline");
+    // Prevent the browser from MIME-sniffing and honor the stored type exactly.
+    // Uploaded SVGs are served inline, so this stops an embedded <script> from
+    // executing on direct navigation to this URL.
+    headers.set("X-Content-Type-Options", "nosniff");
     if (object.ContentLength != null) {
       headers.set("Content-Length", String(object.ContentLength));
     }

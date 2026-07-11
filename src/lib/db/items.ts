@@ -242,6 +242,28 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
   };
 }
 
+// Just the fields the file-streaming routes (download/image) need to locate and
+// serve a FILE item's object. Kept separate from `getItemDetail` so those hot
+// paths (every gallery thumbnail hits the image route) skip the itemType/tags/
+// collections joins.
+export interface ItemFileRef {
+  contentType: ItemDetail["contentType"];
+  fileUrl: string | null;
+  fileName: string | null;
+}
+
+// User-scoped lookup of a single item's file reference. Returns null when the
+// item isn't the current user's (ownership check via `requireUserId`), so the
+// streaming routes stay behind the same authorization as `getItemDetail`.
+export async function getItemFileRef(id: string): Promise<ItemFileRef | null> {
+  const userId = await requireUserId();
+
+  return prisma.item.findFirst({
+    where: { id, userId },
+    select: { contentType: true, fileUrl: true, fileName: true },
+  });
+}
+
 // The fields needed to create an item, as accepted by `createItem`. Validated by
 // the server action's Zod schema before reaching here, so values are already
 // normalized (trimmed title, empty strings collapsed to null, tags deduped, and

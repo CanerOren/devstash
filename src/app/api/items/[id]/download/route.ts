@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { getItemDetail } from "@/lib/db/items";
+import { getItemFileRef } from "@/lib/db/items";
 import { getFromR2ByUrl } from "@/lib/r2";
 
 // Node runtime — the AWS S3 client streaming isn't edge-compatible.
@@ -8,7 +8,7 @@ export const runtime = "nodejs";
 // GET /api/items/[id]/download — streams a FILE item's object back through the
 // server with a Content-Disposition: attachment header, so the browser downloads
 // it. Proxying avoids the CORS issues of hitting the R2 public URL directly and
-// keeps the download behind the session-scoped ownership check (getItemDetail).
+// keeps the download behind the session-scoped ownership check (getItemFileRef).
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -20,7 +20,7 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const item = await getItemDetail(id);
+    const item = await getItemFileRef(id);
     if (!item || item.contentType !== "FILE" || !item.fileUrl) {
       return new Response("Not found", { status: 404 });
     }

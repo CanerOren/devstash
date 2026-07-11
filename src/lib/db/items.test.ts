@@ -49,6 +49,7 @@ vi.mock("@/lib/r2", () => ({ deleteFromR2ByUrl }));
 
 import {
   getItemDetail,
+  getItemFileRef,
   getItemsByType,
   createItem,
   updateItem,
@@ -126,6 +127,36 @@ describe("getItemDetail", () => {
       },
       collections: [{ id: "c1", name: "React Patterns" }],
     });
+  });
+});
+
+describe("getItemFileRef", () => {
+  it("returns null when the item isn't found (or isn't the user's)", async () => {
+    findFirst.mockResolvedValue(null);
+    expect(await getItemFileRef("missing")).toBeNull();
+  });
+
+  it("scopes the lookup to the session user and selects only the file fields", async () => {
+    findFirst.mockResolvedValue({
+      contentType: "FILE",
+      fileUrl: "https://cdn/u1/a.pdf",
+      fileName: "a.pdf",
+    });
+    await getItemFileRef("item_1");
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { id: "item_1", userId: "user_1" },
+      select: { contentType: true, fileUrl: true, fileName: true },
+    });
+  });
+
+  it("returns the file reference row as-is", async () => {
+    const row = {
+      contentType: "FILE" as const,
+      fileUrl: "https://cdn/u1/a.pdf",
+      fileName: "a.pdf",
+    };
+    findFirst.mockResolvedValue(row);
+    expect(await getItemFileRef("item_1")).toEqual(row);
   });
 });
 

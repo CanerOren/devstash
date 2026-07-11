@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   acceptAttribute,
+  formatFileSize,
   formatMaxSize,
   FILE_CONSTRAINTS,
   validateFile,
@@ -24,19 +25,6 @@ interface FileUploadProps {
   category: FileCategory;
   value: UploadedFile | null;
   onChange: (value: UploadedFile | null) => void;
-}
-
-// Human-readable byte count, e.g. 2048 → "2.0 KB".
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  const units = ["KB", "MB", "GB"];
-  let size = bytes / 1024;
-  let unit = 0;
-  while (size >= 1024 && unit < units.length - 1) {
-    size /= 1024;
-    unit += 1;
-  }
-  return `${size.toFixed(1)} ${units[unit]}`;
 }
 
 // Drag-and-drop file upload for the file/image item types. Uploads to /api/upload
