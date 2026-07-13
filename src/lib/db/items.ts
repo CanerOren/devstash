@@ -100,6 +100,24 @@ type ItemRow = {
   tags: { tag: { name: string } }[];
 };
 
+// Maps a raw item-type row to the DashboardItemType view model (adds the
+// capitalized display label). Shared by every fetcher that resolves an item's
+// type, so the projection lives in one place.
+function toItemType(row: {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+}): DashboardItemType {
+  return {
+    id: row.id,
+    name: row.name,
+    label: toLabel(row.name),
+    icon: row.icon,
+    color: row.color,
+  };
+}
+
 function toDashboardItem(item: ItemRow): DashboardItem {
   return {
     id: item.id,
@@ -112,13 +130,7 @@ function toDashboardItem(item: ItemRow): DashboardItem {
     fileName: item.fileName,
     fileSize: item.fileSize,
     tags: item.tags.map(({ tag }) => tag.name),
-    type: {
-      id: item.itemType.id,
-      name: item.itemType.name,
-      label: toLabel(item.itemType.name),
-      icon: item.itemType.icon,
-      color: item.itemType.color,
-    },
+    type: toItemType(item.itemType),
   };
 }
 
@@ -182,13 +194,7 @@ export async function getItemsByType(
   });
 
   return {
-    type: {
-      id: itemType.id,
-      name: itemType.name,
-      label: toLabel(itemType.name),
-      icon: itemType.icon,
-      color: itemType.color,
-    },
+    type: toItemType(itemType),
     items: items.map(toDashboardItem),
   };
 }
@@ -202,12 +208,7 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
   const item = await prisma.item.findFirst({
     where: { id, userId },
     include: {
-      itemType: {
-        select: { id: true, name: true, icon: true, color: true },
-      },
-      tags: {
-        select: { tag: { select: { name: true } } },
-      },
+      ...itemInclude,
       collections: {
         select: { collection: { select: { id: true, name: true } } },
       },
@@ -231,13 +232,7 @@ export async function getItemDetail(id: string): Promise<ItemDetail | null> {
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
     tags: item.tags.map(({ tag }) => tag.name),
-    type: {
-      id: item.itemType.id,
-      name: item.itemType.name,
-      label: toLabel(item.itemType.name),
-      icon: item.itemType.icon,
-      color: item.itemType.color,
-    },
+    type: toItemType(item.itemType),
     collections: item.collections.map(({ collection }) => collection),
   };
 }
