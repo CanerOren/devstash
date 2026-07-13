@@ -3,24 +3,12 @@
 import { createElement, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import {
-  Check,
-  Copy,
-  Download,
-  ExternalLink,
-  FileText,
-  Loader2,
-  Pencil,
-  Pin,
-  Star,
-  Trash2,
-} from "lucide-react";
+import { Loader2 } from "lucide-react";
 
-import type { DashboardItem, ItemDetail } from "@/lib/db/items";
+import type { DashboardItem } from "@/lib/db/items";
 import { updateItem, deleteItem } from "@/actions/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
-import { cn } from "@/lib/utils";
-import { formatFileSize } from "@/lib/file-constraints";
+import { formatFullDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,19 +17,10 @@ import {
   initialEditState,
   type ItemEditState,
 } from "@/components/items/ItemEditForm";
-import { CodeEditor } from "@/components/items/CodeEditor";
-import { MarkdownEditor } from "@/components/items/MarkdownEditor";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { ItemContentBlock } from "@/components/items/ItemContentBlock";
+import { ItemActionBar } from "@/components/items/ItemActionBar";
+import { Section, DetailRow } from "@/components/items/drawer-primitives";
+import type { ItemDetailResponse } from "@/components/items/item-detail-response";
 import {
   Sheet,
   SheetContent,
@@ -50,12 +29,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 
-// Dates serialize to ISO strings over the API, so the client detail mirrors
-// ItemDetail with string dates instead of Date.
-export type ItemDetailResponse = Omit<ItemDetail, "createdAt" | "updatedAt"> & {
-  createdAt: string;
-  updatedAt: string;
-};
+export type { ItemDetailResponse } from "@/components/items/item-detail-response";
 
 interface ItemDrawerProps {
   open: boolean;
@@ -70,15 +44,6 @@ interface ItemDrawerProps {
   onUpdated: (detail: ItemDetailResponse) => void;
   // Called after a successful delete so the container can close the drawer.
   onDeleted: () => void;
-}
-
-// Formats a date as "January 15, 2024".
-function formatFullDate(value: string | Date): string {
-  return new Date(value).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
 }
 
 // The item detail drawer — a right-side Sheet that doubles as the item view.
@@ -253,7 +218,7 @@ export function ItemDrawer({
           ) : (
             // Keyed by item id so per-item state (e.g. "Copied!") resets when the
             // drawer switches to a different item.
-            <ActionBar
+            <ItemActionBar
               key={detail?.id ?? "loading"}
               isFavorite={isFavorite}
               isPinned={isPinned}
@@ -286,7 +251,7 @@ export function ItemDrawer({
                 {loading && !detail ? (
                   <Skeleton className="h-32 w-full rounded-lg" />
                 ) : (
-                  <ContentBlock detail={detail} />
+                  <ItemContentBlock detail={detail} />
                 )}
               </Section>
 
@@ -347,254 +312,5 @@ export function ItemDrawer({
         </div>
       </SheetContent>
     </Sheet>
-  );
-}
-
-// A labelled body section with the small uppercase-ish muted heading.
-function Section({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="space-y-2">
-      <h3 className="text-xs font-medium text-muted-foreground">{label}</h3>
-      {children}
-    </section>
-  );
-}
-
-function DetailRow({ term, value }: { term: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <dt className="text-muted-foreground">{term}</dt>
-      <dd className="text-foreground">{value}</dd>
-    </div>
-  );
-}
-
-// Code types get the Monaco editor for their content; markdown types (note,
-// prompt) get the rendered Markdown preview; the rest keep a plain block.
-const CODE_TYPES = new Set(["snippet", "command"]);
-const MARKDOWN_TYPES = new Set(["note", "prompt"]);
-
-// Renders the item's content per its content type: the Monaco code editor for
-// snippet/command TEXT items, the Markdown preview for note/prompt items, a
-// plain block for other text, the link for URL items, and file info for FILE.
-function ContentBlock({ detail }: { detail: ItemDetailResponse | null }) {
-  if (!detail) return null;
-
-  if (detail.contentType === "URL" && detail.url) {
-    return (
-      <a
-        href={detail.url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
-      >
-        <ExternalLink className="size-3.5" />
-        {detail.url}
-      </a>
-    );
-  }
-
-  if (detail.contentType === "FILE") {
-    const isImage = detail.type.name === "image";
-    return (
-      <div className="space-y-3">
-        {isImage && detail.fileUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            // Served through our origin (streams from R2's S3 endpoint) rather
-            // than the flaky public r2.dev URL.
-            src={`/api/items/${detail.id}/image`}
-            alt={detail.fileName ?? detail.title}
-            className="max-h-96 w-auto max-w-full rounded-lg border border-border object-contain"
-          />
-        )}
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-          <div className="flex min-w-0 items-center gap-2.5">
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-muted/50">
-              <FileText className="size-4 text-muted-foreground" />
-            </span>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">
-                {detail.fileName ?? "Attached file"}
-              </p>
-              {detail.fileSize != null && (
-                <p className="text-xs text-muted-foreground">
-                  {formatFileSize(detail.fileSize)}
-                </p>
-              )}
-            </div>
-          </div>
-          <Button asChild size="sm" variant="outline">
-            <a href={`/api/items/${detail.id}/download`} download>
-              <Download className="size-4" />
-              Download
-            </a>
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  if (detail.content) {
-    if (CODE_TYPES.has(detail.type.name)) {
-      return (
-        <CodeEditor value={detail.content} language={detail.language} readOnly />
-      );
-    }
-    if (MARKDOWN_TYPES.has(detail.type.name)) {
-      return <MarkdownEditor value={detail.content} readOnly />;
-    }
-    return (
-      <pre className="overflow-x-auto rounded-lg border border-border bg-muted/50 p-4 text-xs leading-relaxed">
-        <code>{detail.content}</code>
-      </pre>
-    );
-  }
-
-  return <p className="text-sm text-muted-foreground">No content.</p>;
-}
-
-// The action bar. Copy, Edit, and Delete are functional; favorite/pin reflect
-// state but their mutations are deferred to a later feature (per the drawer spec).
-function ActionBar({
-  isFavorite,
-  isPinned,
-  detail,
-  onEdit,
-  onDelete,
-  deleting,
-  title,
-}: {
-  isFavorite: boolean;
-  isPinned: boolean;
-  detail: ItemDetailResponse | null;
-  onEdit: () => void;
-  onDelete: () => void;
-  deleting: boolean;
-  title: string;
-}) {
-  const [copied, setCopied] = useState(false);
-
-  const copyText = detail?.content ?? detail?.url ?? "";
-
-  async function handleCopy() {
-    if (!copyText) return;
-    try {
-      await navigator.clipboard.writeText(copyText);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    } catch {
-      // Clipboard can be unavailable (e.g. insecure context) — fail silently.
-    }
-  }
-
-  return (
-    <div className="flex items-center gap-1">
-      <ActionButton
-        icon={Star}
-        label="Favorite"
-        active={isFavorite}
-        activeClassName="fill-amber-400 text-amber-400"
-      />
-      <ActionButton icon={Pin} label="Pin" active={isPinned} />
-      <ActionButton
-        icon={copied ? Check : Copy}
-        label={copied ? "Copied" : "Copy"}
-        onClick={handleCopy}
-        disabled={!copyText}
-      />
-      {/* Edit needs the loaded detail to populate the form. */}
-      <ActionButton
-        icon={Pencil}
-        label="Edit"
-        onClick={onEdit}
-        disabled={!detail}
-      />
-
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <button
-            type="button"
-            title="Delete"
-            aria-label="Delete"
-            disabled={!detail}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-destructive transition-colors hover:bg-accent hover:text-destructive disabled:pointer-events-none disabled:opacity-50"
-          >
-            <Trash2 className="size-4" />
-          </button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete this item?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete
-              {title ? ` “${title}”` : " this item"}. This action can&apos;t be
-              undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              disabled={deleting}
-              onClick={(event) => {
-                // Keep the dialog open while the delete is in flight; the drawer
-                // (and this dialog with it) unmounts on success.
-                event.preventDefault();
-                onDelete();
-              }}
-            >
-              {deleting && <Loader2 className="size-4 animate-spin" />}
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
-
-function ActionButton({
-  icon,
-  label,
-  active = false,
-  activeClassName,
-  hideLabel = false,
-  className,
-  onClick,
-  disabled = false,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  active?: boolean;
-  activeClassName?: string;
-  hideLabel?: boolean;
-  className?: string;
-  onClick?: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={label}
-      aria-label={label}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50",
-        className,
-      )}
-    >
-      {createElement(icon, {
-        className: cn("size-4", active && activeClassName),
-      })}
-      {!hideLabel && <span>{label}</span>}
-    </button>
   );
 }
