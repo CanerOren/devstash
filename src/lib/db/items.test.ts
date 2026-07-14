@@ -12,6 +12,7 @@ const {
   itemDelete,
   itemTypeFindMany,
   itemTypeFindFirst,
+  collectionFindMany,
   deleteFromR2ByUrl,
 } = vi.hoisted(() => ({
   findFirst: vi.fn(),
@@ -21,6 +22,7 @@ const {
   itemDelete: vi.fn(),
   itemTypeFindMany: vi.fn(),
   itemTypeFindFirst: vi.fn(),
+  collectionFindMany: vi.fn(),
   deleteFromR2ByUrl: vi.fn(),
 }));
 
@@ -34,6 +36,7 @@ vi.mock("@/lib/prisma", () => ({
       delete: itemDelete,
     },
     itemType: { findMany: itemTypeFindMany, findFirst: itemTypeFindFirst },
+    collection: { findMany: collectionFindMany },
   },
 }));
 
@@ -171,6 +174,7 @@ describe("createItem", () => {
     fileName: null,
     fileSize: null,
     tags: ["react", "hooks"],
+    collectionIds: [],
   };
 
   it("returns null without creating when the type name isn't a system type", async () => {
@@ -222,6 +226,7 @@ describe("createItem", () => {
             },
           ],
         },
+        collections: { create: [] },
       },
       select: { id: true },
     });
@@ -245,6 +250,7 @@ describe("createItem", () => {
       fileName: null,
       fileSize: null,
       tags: [],
+      collectionIds: [],
     });
 
     expect(itemCreate).toHaveBeenCalledWith(
@@ -274,6 +280,7 @@ describe("createItem", () => {
       fileName: "logo.png",
       fileSize: 2048,
       tags: [],
+      collectionIds: [],
     });
 
     expect(itemCreate).toHaveBeenCalledWith(
@@ -288,6 +295,34 @@ describe("createItem", () => {
       }),
     );
   });
+
+  it("links only the collections the user owns (drops foreign/unknown ids)", async () => {
+    itemTypeFindFirst.mockResolvedValue({ id: "t_snippet" });
+    // The user owns c_1 but not c_foreign — only c_1 comes back.
+    collectionFindMany.mockResolvedValue([{ id: "c_1" }]);
+    itemCreate.mockResolvedValue({ id: "item_1" });
+    findFirst.mockResolvedValue(detailRow());
+
+    await createItem({
+      typeName: "snippet",
+      ...base,
+      collectionIds: ["c_1", "c_foreign"],
+    });
+
+    // Ownership filter is scoped to the requested ids + the session user.
+    expect(collectionFindMany).toHaveBeenCalledWith({
+      where: { id: { in: ["c_1", "c_foreign"] }, userId: "user_1" },
+      select: { id: true },
+    });
+    // Only the owned id is connected.
+    expect(itemCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          collections: { create: [{ collection: { connect: { id: "c_1" } } }] },
+        }),
+      }),
+    );
+  });
 });
 
 describe("updateItem", () => {
@@ -298,6 +333,7 @@ describe("updateItem", () => {
     url: null,
     language: "typescript",
     tags: ["react", "hooks"],
+    collectionIds: [],
   };
 
   it("returns null without writing when the item isn't the user's", async () => {
@@ -343,10 +379,36 @@ describe("updateItem", () => {
             },
           ],
         },
+        collections: { deleteMany: {}, create: [] },
       },
     });
     // Returns the refreshed detail from the post-update refetch.
     expect(result?.id).toBe("item_1");
+  });
+
+  it("replaces collection memberships with only the user's owned ids", async () => {
+    findFirst
+      .mockResolvedValueOnce({ id: "item_1" }) // ownership check
+      .mockResolvedValueOnce(detailRow()); // getItemDetail refetch
+    collectionFindMany.mockResolvedValue([{ id: "c_2" }]); // owns c_2, not c_foreign
+    itemUpdate.mockResolvedValue({ id: "item_1" });
+
+    await updateItem("item_1", { ...data, collectionIds: ["c_2", "c_foreign"] });
+
+    expect(collectionFindMany).toHaveBeenCalledWith({
+      where: { id: { in: ["c_2", "c_foreign"] }, userId: "user_1" },
+      select: { id: true },
+    });
+    expect(itemUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          collections: {
+            deleteMany: {},
+            create: [{ collection: { connect: { id: "c_2" } } }],
+          },
+        }),
+      }),
+    );
   });
 });
 

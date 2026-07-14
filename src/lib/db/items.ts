@@ -275,6 +275,22 @@ export interface CreateItemData {
   fileName: string | null;
   fileSize: number | null;
   tags: string[];
+  collectionIds: string[]; // collections to add the item to
+}
+
+// Filters a list of collection ids down to those the user actually owns, so an
+// item can only be linked to the caller's own collections — the ItemCollection
+// FK alone would accept any existing collection id (including another user's).
+async function ownedCollectionIds(
+  ids: string[],
+  userId: string,
+): Promise<string[]> {
+  if (ids.length === 0) return [];
+  const owned = await prisma.collection.findMany({
+    where: { id: { in: ids }, userId },
+    select: { id: true },
+  });
+  return owned.map((collection) => collection.id);
 }
 
 // Creates an item of a system type for the current user and returns its full
@@ -301,6 +317,8 @@ export async function createItem(
         ? "FILE"
         : "TEXT";
 
+  const collectionIds = await ownedCollectionIds(data.collectionIds, userId);
+
   const created = await prisma.item.create({
     data: {
       title: data.title,
@@ -324,6 +342,11 @@ export async function createItem(
           },
         })),
       },
+      collections: {
+        create: collectionIds.map((collectionId) => ({
+          collection: { connect: { id: collectionId } },
+        })),
+      },
     },
     select: { id: true },
   });
@@ -341,6 +364,7 @@ export interface UpdateItemData {
   url: string | null;
   language: string | null;
   tags: string[];
+  collectionIds: string[]; // collections the item should belong to (replaces existing)
 }
 
 // Updates one of the current user's items and returns the refreshed ItemDetail
@@ -363,6 +387,8 @@ export async function updateItem(
   });
   if (!existing) return null;
 
+  const collectionIds = await ownedCollectionIds(data.collectionIds, userId);
+
   await prisma.item.update({
     where: { id },
     data: {
@@ -380,6 +406,13 @@ export async function updateItem(
               create: { name, userId },
             },
           },
+        })),
+      },
+      // Replace collection memberships wholesale, mirroring the tag pattern.
+      collections: {
+        deleteMany: {},
+        create: collectionIds.map((collectionId) => ({
+          collection: { connect: { id: collectionId } },
         })),
       },
     },

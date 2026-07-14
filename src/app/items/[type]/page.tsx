@@ -6,6 +6,7 @@ import {
   getSidebarItemTypes,
   toCreatableTypes,
 } from "@/lib/db/items";
+import { getCollectionOptions } from "@/lib/db/collections";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { ItemCard } from "@/components/dashboard/ItemCard";
 import { ImageCard } from "@/components/items/ImageCard";
@@ -22,9 +23,10 @@ export default async function ItemsByTypePage({
   params: Promise<{ type: string }>;
 }) {
   const { type } = await params;
-  const [result, itemTypes] = await Promise.all([
+  const [result, itemTypes, collectionOptions] = await Promise.all([
     getItemsByType(type),
     getSidebarItemTypes(),
+    getCollectionOptions(),
   ]);
   if (!result) notFound();
 
@@ -66,6 +68,7 @@ export default async function ItemsByTypePage({
           <div className="ml-auto">
             <CreateItemDialog
               types={createTypes}
+              collections={collectionOptions}
               defaultType={itemType.name}
               triggerLabel={`New ${itemType.label}`}
             />

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 import type { DashboardItem } from "@/lib/db/items";
+import type { CollectionOption } from "@/lib/db/collections";
 import { updateItem, deleteItem } from "@/actions/items";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { formatFullDate } from "@/lib/format";
@@ -44,6 +45,8 @@ interface ItemDrawerProps {
   onUpdated: (detail: ItemDetailResponse) => void;
   // Called after a successful delete so the container can close the drawer.
   onDeleted: () => void;
+  // The user's collections, for the edit form's collection multi-select.
+  collections: CollectionOption[];
 }
 
 // The item detail drawer — a right-side Sheet that doubles as the item view.
@@ -58,6 +61,7 @@ export function ItemDrawer({
   error,
   onUpdated,
   onDeleted,
+  collections,
 }: ItemDrawerProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -108,6 +112,7 @@ export function ItemDrawer({
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean),
+      collectionIds: form.collectionIds,
     });
     setSaving(false);
 
@@ -234,7 +239,12 @@ export function ItemDrawer({
         {/* Body */}
         <div className="space-y-6 p-6">
           {editing && form && type ? (
-            <ItemEditForm typeName={type.name} value={form} onChange={setForm} />
+            <ItemEditForm
+              typeName={type.name}
+              value={form}
+              onChange={setForm}
+              collections={collections}
+            />
           ) : error ? (
             <p className="text-sm text-destructive">{error}</p>
           ) : (

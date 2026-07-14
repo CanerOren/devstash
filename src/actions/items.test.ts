@@ -109,7 +109,17 @@ describe("createItem action — normalization", () => {
       fileName: null,
       fileSize: null,
       tags: ["a"],
+      collectionIds: [],
     });
+  });
+
+  it("trims, drops blanks, and dedupes collectionIds", async () => {
+    await createItem(
+      createInput({ collectionIds: [" c_1 ", "c_2", "", "c_1"] }),
+    );
+    expect(createItemQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ collectionIds: ["c_1", "c_2"] }),
+    );
   });
 
   it("keeps file metadata and nulls content/url/language for file/image items", async () => {
@@ -221,6 +231,7 @@ describe("updateItem action — validation", () => {
       url: null,
       language: null,
       tags: [],
+      collectionIds: [],
     });
   });
 
@@ -240,6 +251,7 @@ describe("updateItem action — validation", () => {
       url: "https://example.com/x",
       language: "bash",
       tags: ["a"],
+      collectionIds: [],
     });
   });
 
@@ -248,6 +260,17 @@ describe("updateItem action — validation", () => {
     expect(updateItemQuery).toHaveBeenCalledWith(
       "item_1",
       expect.objectContaining({ tags: ["react", "hooks"] }),
+    );
+  });
+
+  it("trims, drops blanks, and dedupes collectionIds", async () => {
+    await updateItem(
+      "item_1",
+      input({ collectionIds: [" c_1 ", "c_2", "", "c_1"] }),
+    );
+    expect(updateItemQuery).toHaveBeenCalledWith(
+      "item_1",
+      expect.objectContaining({ collectionIds: ["c_1", "c_2"] }),
     );
   });
 });

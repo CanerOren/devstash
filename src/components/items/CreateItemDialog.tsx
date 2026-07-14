@@ -2,10 +2,9 @@
 
 import { createElement, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { toast } from "sonner";
 
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -17,6 +16,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import {
   ItemEditForm,
@@ -28,6 +33,7 @@ import {
 } from "@/components/items/FileUpload";
 import { createItem } from "@/actions/items";
 import type { CreatableType } from "@/lib/db/items";
+import type { CollectionOption } from "@/lib/db/collections";
 import { isFileCategory } from "@/lib/file-constraints";
 
 const BLANK_FORM: ItemEditState = {
@@ -37,10 +43,13 @@ const BLANK_FORM: ItemEditState = {
   language: "",
   url: "",
   tags: "",
+  collectionIds: [],
 };
 
 interface CreateItemDialogProps {
   types: CreatableType[];
+  // The user's collections, for the collection multi-select.
+  collections: CollectionOption[];
   // Type to preselect when the dialog opens (e.g. the current /items/[type]
   // page). Falls back to the first creatable type.
   defaultType?: string;
@@ -54,6 +63,7 @@ interface CreateItemDialogProps {
 // new item appears in the lists.
 export function CreateItemDialog({
   types,
+  collections,
   defaultType,
   triggerLabel = "New Item",
 }: CreateItemDialogProps) {
@@ -71,6 +81,8 @@ export function CreateItemDialog({
   const [error, setError] = useState<string | null>(null);
 
   const isFileType = isFileCategory(type);
+  // The currently selected type, for the dropdown trigger's icon + label.
+  const selectedType = types.find((t) => t.name === type);
 
   function handleOpenChange(next: boolean) {
     // Reset to a blank form (and the preselected type) each time it opens.
@@ -127,6 +139,7 @@ export function CreateItemDialog({
         .split(",")
         .map((tag) => tag.trim())
         .filter(Boolean),
+      collectionIds: form.collectionIds,
     });
     setSubmitting(false);
 
@@ -158,33 +171,42 @@ export function CreateItemDialog({
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
             <Label>Type</Label>
-            <div className="flex flex-wrap gap-2">
-              {types.map((t) => {
-                const selected = t.name === type;
-                return (
-                  <button
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full justify-between font-normal"
+                >
+                  <span className="flex items-center gap-2">
+                    {selectedType &&
+                      createElement(getTypeIcon(selectedType.icon), {
+                        className: "size-4",
+                        style: { color: selectedType.color },
+                      })}
+                    {selectedType?.label ?? "Select type"}
+                  </span>
+                  <ChevronDown className="size-4 shrink-0 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="start"
+                className="max-h-64 w-(--radix-dropdown-menu-trigger-width) overflow-y-auto"
+              >
+                {types.map((t) => (
+                  <DropdownMenuItem
                     key={t.name}
-                    type="button"
-                    onClick={() => handleTypeChange(t.name)}
-                    className={cn(
-                      "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors",
-                      selected
-                        ? "border-transparent"
-                        : "border-border text-muted-foreground hover:bg-accent",
-                    )}
-                    // Selected pill is tinted with the type's color (data-driven).
-                    style={
-                      selected
-                        ? { backgroundColor: `${t.color}1a`, color: t.color }
-                        : undefined
-                    }
+                    onSelect={() => handleTypeChange(t.name)}
                   >
-                    {createElement(getTypeIcon(t.icon), { className: "size-3.5" })}
+                    {createElement(getTypeIcon(t.icon), {
+                      className: "size-4",
+                      style: { color: t.color },
+                    })}
                     {t.label}
-                  </button>
-                );
-              })}
-            </div>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {isFileType && (
@@ -198,7 +220,12 @@ export function CreateItemDialog({
             </div>
           )}
 
-          <ItemEditForm typeName={type} value={form} onChange={setForm} />
+          <ItemEditForm
+            typeName={type}
+            value={form}
+            onChange={setForm}
+            collections={collections}
+          />
 
           {error && <p className="text-sm text-destructive">{error}</p>}
 

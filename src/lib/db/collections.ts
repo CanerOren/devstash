@@ -36,6 +36,12 @@ export interface SidebarCollection {
   primaryColor: string;
 }
 
+// A minimal collection option for the item forms' collection multi-select.
+export interface CollectionOption {
+  id: string;
+  name: string;
+}
+
 // Fetches the current user's most recent collections for the dashboard grid.
 // Each collection is returned with its item count, the distinct item types it
 // contains (ordered by frequency so the most-common type is first), and the
@@ -187,6 +193,19 @@ export async function createCollection(
     types: [],
     primaryColor: "var(--border)",
   };
+}
+
+// All of the current user's collections as lightweight { id, name } options for
+// the item forms' collection multi-select (alphabetical). Kept separate from the
+// sidebar/dashboard fetchers, which carry heavy nested item/type data the
+// selector doesn't need.
+export async function getCollectionOptions(): Promise<CollectionOption[]> {
+  const userId = await requireUserId();
+  return prisma.collection.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 }
 
 // Aggregate collection counts for the dashboard stat cards.
