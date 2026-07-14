@@ -48,6 +48,75 @@ export interface CollectionOption {
   name: string;
 }
 
+// The Prisma shape shared by the dashboard-card fetchers/mutators: a collection
+// with just enough of each contained item to derive its distinct item types.
+interface CollectionWithTypeItems {
+  id: string;
+  name: string;
+  description: string | null;
+  isFavorite: boolean;
+  items: {
+    item: {
+      itemType: { id: string; name: string; icon: string; color: string };
+    };
+  }[];
+}
+
+// The `include` for the shape above — reused by every fetcher/mutator that
+// returns a DashboardCollection so the tally logic stays consistent.
+const dashboardCollectionInclude = {
+  items: {
+    select: {
+      item: {
+        select: {
+          itemType: {
+            select: { id: true, name: true, icon: true, color: true },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+// Builds a DashboardCollection view model from a collection-with-type-items row:
+// tallies the distinct item types (ordered most-common first) and picks the
+// most-common type's color as the card's border tint.
+function buildDashboardCollection(
+  collection: CollectionWithTypeItems,
+): DashboardCollection {
+  const typeById = new Map<string, CollectionCardType>();
+  const frequency = new Map<string, number>();
+
+  for (const { item } of collection.items) {
+    const type = item.itemType;
+    if (!typeById.has(type.id)) {
+      typeById.set(type.id, {
+        id: type.id,
+        name: type.name,
+        label: toLabel(type.name),
+        icon: type.icon,
+        color: type.color,
+      });
+    }
+    frequency.set(type.id, (frequency.get(type.id) ?? 0) + 1);
+  }
+
+  // Distinct types, most-common first (so types[0] is the primary type).
+  const types = [...typeById.values()].sort(
+    (a, b) => (frequency.get(b.id) ?? 0) - (frequency.get(a.id) ?? 0),
+  );
+
+  return {
+    id: collection.id,
+    name: collection.name,
+    description: collection.description,
+    isFavorite: collection.isFavorite,
+    itemCount: collection.items.length,
+    types,
+    primaryColor: types[0]?.color ?? "var(--border)",
+  };
+}
+
 // Fetches the current user's most recent collections for the dashboard grid.
 // Each collection is returned with its item count, the distinct item types it
 // contains (ordered by frequency so the most-common type is first), and the
@@ -60,55 +129,10 @@ export async function getDashboardCollections(
     where: { userId },
     orderBy: { createdAt: "desc" },
     take: limit,
-    include: {
-      items: {
-        select: {
-          item: {
-            select: {
-              itemType: {
-                select: { id: true, name: true, icon: true, color: true },
-              },
-            },
-          },
-        },
-      },
-    },
+    include: dashboardCollectionInclude,
   });
 
-  return collections.map((collection) => {
-    // Tally how often each item type appears in the collection.
-    const typeById = new Map<string, CollectionCardType>();
-    const frequency = new Map<string, number>();
-
-    for (const { item } of collection.items) {
-      const type = item.itemType;
-      if (!typeById.has(type.id)) {
-        typeById.set(type.id, {
-          id: type.id,
-          name: type.name,
-          label: toLabel(type.name),
-          icon: type.icon,
-          color: type.color,
-        });
-      }
-      frequency.set(type.id, (frequency.get(type.id) ?? 0) + 1);
-    }
-
-    // Distinct types, most-common first (so types[0] is the primary type).
-    const types = [...typeById.values()].sort(
-      (a, b) => (frequency.get(b.id) ?? 0) - (frequency.get(a.id) ?? 0),
-    );
-
-    return {
-      id: collection.id,
-      name: collection.name,
-      description: collection.description,
-      isFavorite: collection.isFavorite,
-      itemCount: collection.items.length,
-      types,
-      primaryColor: types[0]?.color ?? "var(--border)",
-    };
-  });
+  return collections.map(buildDashboardCollection);
 }
 
 // All of the current user's collections for the sidebar (most recent first),
@@ -199,6 +223,55 @@ export async function createCollection(
     types: [],
     primaryColor: "var(--border)",
   };
+}
+
+// The fields accepted when editing a collection's metadata. Validated by the
+// server action's Zod schema before reaching here.
+export interface UpdateCollectionData {
+  name: string;
+  description: string | null;
+}
+
+// Updates a collection's metadata (name/description) and returns its refreshed
+// DashboardCollection view model. Scoped to the session user via an ownership
+// check first (`update`'s where only takes the unique id), so another user's id
+// (or an unknown id) resolves to null and the caller can 404.
+export async function updateCollection(
+  id: string,
+  data: UpdateCollectionData,
+): Promise<DashboardCollection | null> {
+  const userId = await requireUserId();
+
+  const existing = await prisma.collection.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!existing) return null;
+
+  const updated = await prisma.collection.update({
+    where: { id },
+    data: { name: data.name, description: data.description },
+    include: dashboardCollectionInclude,
+  });
+
+  return buildDashboardCollection(updated);
+}
+
+// Deletes a collection. Scoped to the session user via an ownership check first.
+// Its items are NOT deleted — only the `ItemCollection` join rows are removed
+// (via the join table's onDelete: Cascade), so the items simply leave this
+// collection. Returns false when the id isn't the user's (or doesn't exist).
+export async function deleteCollection(id: string): Promise<boolean> {
+  const userId = await requireUserId();
+
+  const existing = await prisma.collection.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!existing) return false;
+
+  await prisma.collection.delete({ where: { id } });
+  return true;
 }
 
 // All of the current user's collections as lightweight { id, name } options for
