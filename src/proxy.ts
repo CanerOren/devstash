@@ -6,7 +6,7 @@ import authConfig from "@/auth.config";
 const { auth } = NextAuth(authConfig);
 
 // Routes that require an authenticated session.
-const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/items"];
+const PROTECTED_PREFIXES = ["/dashboard", "/profile", "/items", "/collections"];
 
 export const proxy = auth((req) => {
   const isLoggedIn = !!req.auth;
@@ -24,5 +24,10 @@ export const proxy = auth((req) => {
 });
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/profile/:path*", "/items/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/profile/:path*",
+    "/items/:path*",
+    "/collections/:path*",
+  ],
 };

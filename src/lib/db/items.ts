@@ -77,7 +77,8 @@ const TYPE_ORDER = [
 ];
 
 // Shared include shape so pinned/recent rows carry their type and tag names.
-const itemInclude = {
+// Exported so the collection-detail fetcher can hydrate items the same way.
+export const itemInclude = {
   itemType: {
     select: { id: true, name: true, icon: true, color: true },
   },
@@ -118,7 +119,8 @@ function toItemType(row: {
   };
 }
 
-function toDashboardItem(item: ItemRow): DashboardItem {
+// Exported so the collection-detail fetcher can reuse the same mapping.
+export function toDashboardItem(item: ItemRow): DashboardItem {
   return {
     id: item.id,
     title: item.title,

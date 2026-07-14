@@ -4,14 +4,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // and @/lib/db/helpers (whose requireUserId pulls in @/auth). Mock both so these
 // tests need no DB, env, or session. vi.hoisted creates the prisma mock fns
 // before the hoisted vi.mock factories run, so they can be referenced inside.
-const { collectionCreate, collectionFindMany } = vi.hoisted(() => ({
-  collectionCreate: vi.fn(),
-  collectionFindMany: vi.fn(),
-}));
+const { collectionCreate, collectionFindMany, collectionFindFirst } =
+  vi.hoisted(() => ({
+    collectionCreate: vi.fn(),
+    collectionFindMany: vi.fn(),
+    collectionFindFirst: vi.fn(),
+  }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    collection: { create: collectionCreate, findMany: collectionFindMany },
+    collection: {
+      create: collectionCreate,
+      findMany: collectionFindMany,
+      findFirst: collectionFindFirst,
+    },
   },
 }));
 
@@ -20,7 +26,11 @@ vi.mock("@/lib/db/helpers", () => ({
   toLabel: (name: string) => name.charAt(0).toUpperCase() + name.slice(1),
 }));
 
-import { createCollection, getCollectionOptions } from "@/lib/db/collections";
+import {
+  createCollection,
+  getCollectionDetail,
+  getCollectionOptions,
+} from "@/lib/db/collections";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -80,6 +90,145 @@ describe("createCollection query", () => {
       }),
     );
     expect(result.description).toBeNull();
+  });
+});
+
+describe("getCollectionDetail query", () => {
+  it("returns null when the id isn't the current user's collection", async () => {
+    collectionFindFirst.mockResolvedValue(null);
+
+    const result = await getCollectionDetail("col_x");
+
+    expect(result).toBeNull();
+    expect(collectionFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "col_x", userId: "user_1" } }),
+    );
+  });
+
+  it("maps the collection and its items to the detail view model", async () => {
+    collectionFindFirst.mockResolvedValue({
+      id: "col_1",
+      name: "React Patterns",
+      description: "Reusable hooks",
+      isFavorite: true,
+      items: [
+        {
+          item: {
+            id: "item_1",
+            title: "useDebounce",
+            description: "debounce hook",
+            isFavorite: false,
+            isPinned: false,
+            createdAt: new Date("2026-01-01"),
+            fileUrl: null,
+            fileName: null,
+            fileSize: null,
+            itemType: {
+              id: "type_1",
+              name: "snippet",
+              icon: "Code",
+              color: "#3b82f6",
+            },
+            tags: [{ tag: { name: "react" } }],
+          },
+        },
+      ],
+    });
+
+    const result = await getCollectionDetail("col_1");
+
+    expect(result).toEqual({
+      id: "col_1",
+      name: "React Patterns",
+      description: "Reusable hooks",
+      isFavorite: true,
+      itemCount: 1,
+      types: [
+        expect.objectContaining({
+          id: "type_1",
+          name: "snippet",
+          label: "Snippet",
+          count: 1,
+        }),
+      ],
+      items: [
+        expect.objectContaining({
+          id: "item_1",
+          title: "useDebounce",
+          tags: ["react"],
+          type: expect.objectContaining({
+            id: "type_1",
+            name: "snippet",
+            label: "Snippet",
+          }),
+        }),
+      ],
+    });
+  });
+
+  it("returns distinct types ordered by frequency (most-common first)", async () => {
+    const makeItem = (id: string, typeName: string, typeId: string) => ({
+      item: {
+        id,
+        title: id,
+        description: null,
+        isFavorite: false,
+        isPinned: false,
+        createdAt: new Date("2026-01-01"),
+        fileUrl: null,
+        fileName: null,
+        fileSize: null,
+        itemType: {
+          id: typeId,
+          name: typeName,
+          icon: "Code",
+          color: "#000",
+        },
+        tags: [],
+      },
+    });
+
+    collectionFindFirst.mockResolvedValue({
+      id: "col_1",
+      name: "Mixed",
+      description: null,
+      isFavorite: false,
+      items: [
+        makeItem("i1", "link", "t_link"),
+        makeItem("i2", "snippet", "t_snip"),
+        makeItem("i3", "snippet", "t_snip"),
+      ],
+    });
+
+    const result = await getCollectionDetail("col_1");
+
+    // snippet appears twice, link once → snippet first, with per-type counts.
+    expect(result?.types.map((t) => [t.name, t.count])).toEqual([
+      ["snippet", 2],
+      ["link", 1],
+    ]);
+  });
+
+  it("returns empty types/items for a collection with no items", async () => {
+    collectionFindFirst.mockResolvedValue({
+      id: "col_empty",
+      name: "Empty",
+      description: null,
+      isFavorite: false,
+      items: [],
+    });
+
+    const result = await getCollectionDetail("col_empty");
+
+    expect(result).toEqual({
+      id: "col_empty",
+      name: "Empty",
+      description: null,
+      isFavorite: false,
+      itemCount: 0,
+      types: [],
+      items: [],
+    });
   });
 });
 
