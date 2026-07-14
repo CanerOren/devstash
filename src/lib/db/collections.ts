@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireUserId, toLabel } from "@/lib/db/helpers";
+import {
+  itemInclude,
+  toDashboardItem,
+  type DashboardItem,
+  type DashboardItemType,
+} from "@/lib/db/items";
 
 // A distinct item type present in a collection, used for the card footer icons.
 export interface CollectionCardType {
@@ -206,6 +212,69 @@ export async function getCollectionOptions(): Promise<CollectionOption[]> {
     orderBy: { name: "asc" },
     select: { id: true, name: true },
   });
+}
+
+// A distinct item type present in a collection, with how many items of that
+// type it contains — used for the collection detail header chips.
+export interface CollectionDetailType extends DashboardItemType {
+  count: number;
+}
+
+// A single collection with its items, for the /collections/[id] detail page.
+export interface CollectionDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  isFavorite: boolean;
+  itemCount: number;
+  types: CollectionDetailType[]; // distinct types present, most-common first
+  items: DashboardItem[]; // most recently added first
+}
+
+// Full detail for one of the current user's collections, by id. Scoped to the
+// session user via `findFirst({ where: { id, userId } })`, so another user's id
+// (or an unknown id) resolves to null and the page can render a 404. Items are
+// hydrated through the shared item include/mapper (no N+1), ordered by when they
+// were added to the collection.
+export async function getCollectionDetail(
+  id: string,
+): Promise<CollectionDetail | null> {
+  const userId = await requireUserId();
+
+  const collection = await prisma.collection.findFirst({
+    where: { id, userId },
+    include: {
+      items: {
+        orderBy: { addedAt: "desc" },
+        include: { item: { include: itemInclude } },
+      },
+    },
+  });
+  if (!collection) return null;
+
+  const items = collection.items.map(({ item }) => toDashboardItem(item));
+
+  // Distinct item types present, each with its item count, ordered by frequency
+  // (most-common first).
+  const typeById = new Map<string, DashboardItemType>();
+  const frequency = new Map<string, number>();
+  for (const { type } of items) {
+    if (!typeById.has(type.id)) typeById.set(type.id, type);
+    frequency.set(type.id, (frequency.get(type.id) ?? 0) + 1);
+  }
+  const types: CollectionDetailType[] = [...typeById.values()]
+    .map((type) => ({ ...type, count: frequency.get(type.id) ?? 0 }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    id: collection.id,
+    name: collection.name,
+    description: collection.description,
+    isFavorite: collection.isFavorite,
+    itemCount: collection.items.length,
+    types,
+    items,
+  };
 }
 
 // Aggregate collection counts for the dashboard stat cards.
