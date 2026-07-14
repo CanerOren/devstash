@@ -1,12 +1,20 @@
-import { getDashboardCollections } from "@/lib/db/collections";
+import { getCollectionsPage } from "@/lib/db/collections";
+import { parsePageParam } from "@/lib/pagination";
 import { CollectionCard } from "@/components/dashboard/CollectionCard";
+import { Pagination } from "@/components/pagination/Pagination";
 
 // Reads live per-user data, so render on each request rather than prerendering.
 export const dynamic = "force-dynamic";
 
-// All of the current user's collections.
-export default async function CollectionsPage() {
-  const collections = await getDashboardCollections(100);
+// All of the current user's collections, paginated.
+export default async function CollectionsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string }>;
+}) {
+  const { page: pageParam } = await searchParams;
+  const { collections, totalCount, page, totalPages } =
+    await getCollectionsPage(parsePageParam(pageParam));
 
   return (
     <div className="mx-auto max-w-6xl space-y-8">
@@ -14,8 +22,7 @@ export default async function CollectionsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Collections</h1>
         <p className="text-sm text-muted-foreground">
-          {collections.length}{" "}
-          {collections.length === 1 ? "collection" : "collections"}
+          {totalCount} {totalCount === 1 ? "collection" : "collections"}
         </p>
       </div>
 
@@ -33,6 +40,9 @@ export default async function CollectionsPage() {
           </p>
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination page={page} totalPages={totalPages} basePath="/collections" />
     </div>
   );
 }

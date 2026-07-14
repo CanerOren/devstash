@@ -3,11 +3,13 @@ import { notFound } from "next/navigation";
 import { Star } from "lucide-react";
 
 import { getCollectionDetail } from "@/lib/db/collections";
+import { parsePageParam } from "@/lib/pagination";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { ItemCard } from "@/components/dashboard/ItemCard";
 import { ImageCard } from "@/components/items/ImageCard";
 import { FileRow } from "@/components/items/FileRow";
 import { CollectionDetailActions } from "@/components/items/CollectionDetailActions";
+import { Pagination } from "@/components/pagination/Pagination";
 
 // Reads live per-user data, so render on each request rather than prerendering.
 export const dynamic = "force-dynamic";
@@ -15,14 +17,17 @@ export const dynamic = "force-dynamic";
 // A single collection and the items it contains.
 export default async function CollectionDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { id } = await params;
-  const collection = await getCollectionDetail(id);
+  const { page: pageParam } = await searchParams;
+  const collection = await getCollectionDetail(id, parsePageParam(pageParam));
   if (!collection) notFound();
 
-  const { items, types } = collection;
+  const { items, types, page, totalPages } = collection;
 
   // A collection can hold mixed types. Files and images are pulled into their
   // own sections — files as a single-column list (Drive/Dropbox style) and
@@ -131,6 +136,13 @@ export default async function CollectionDetailPage({
           </p>
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        basePath={`/collections/${id}`}
+      />
     </div>
   );
 }

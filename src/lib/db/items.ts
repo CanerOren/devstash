@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { requireUserId, toLabel } from "@/lib/db/helpers";
 import { deleteFromR2ByUrl } from "@/lib/r2";
+import {
+  DASHBOARD_RECENT_ITEMS_LIMIT,
+  ITEMS_PER_PAGE,
+  getPagination,
+} from "@/lib/pagination";
 
 // The item type an item belongs to, used for the card's icon/border.
 export interface DashboardItemType {
@@ -151,7 +156,9 @@ export async function getPinnedItems(): Promise<DashboardItem[]> {
 }
 
 // The current user's most recently created items for the Recent list.
-export async function getRecentItems(limit = 10): Promise<DashboardItem[]> {
+export async function getRecentItems(
+  limit = DASHBOARD_RECENT_ITEMS_LIMIT,
+): Promise<DashboardItem[]> {
   const userId = await requireUserId();
   const items = await prisma.item.findMany({
     where: { userId },
@@ -164,18 +171,24 @@ export async function getRecentItems(limit = 10): Promise<DashboardItem[]> {
 }
 
 // Items of a single type, resolved from its plural URL slug, for the
-// /items/[type] list page.
+// /items/[type] list page. Paginated: `items` holds only the current page, and
+// `page` / `totalPages` describe the full result set for the pagination control.
 export interface ItemsByType {
   type: DashboardItemType;
   items: DashboardItem[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
 }
 
 // The current user's items of one system type, resolved from the plural URL
 // slug used in the sidebar links (e.g. "snippets" → the "snippet" type), most
-// recent first. Returns null when the slug doesn't match a system item type,
-// so the page can render a 404.
+// recent first. Only the requested page's items are fetched (ITEMS_PER_PAGE per
+// page). Returns null when the slug doesn't match a system item type, so the
+// page can render a 404.
 export async function getItemsByType(
   typeSlug: string,
+  requestedPage = 1,
 ): Promise<ItemsByType | null> {
   const userId = await requireUserId();
 
@@ -188,16 +201,28 @@ export async function getItemsByType(
   const itemType = types.find((type) => `${type.name}s` === typeSlug);
   if (!itemType) return null;
 
+  const where = { userId, itemTypeId: itemType.id };
+  const totalCount = await prisma.item.count({ where });
+  const { page, totalPages, skip, take } = getPagination(
+    requestedPage,
+    totalCount,
+    ITEMS_PER_PAGE,
+  );
+
   const items = await prisma.item.findMany({
-    where: { userId, itemTypeId: itemType.id },
+    where,
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip,
+    take,
     include: itemInclude,
   });
 
   return {
     type: toItemType(itemType),
     items: items.map(toDashboardItem),
+    totalCount,
+    page,
+    totalPages,
   };
 }
 

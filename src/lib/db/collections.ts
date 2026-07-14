@@ -6,6 +6,12 @@ import {
   type DashboardItem,
   type DashboardItemType,
 } from "@/lib/db/items";
+import {
+  COLLECTIONS_PER_PAGE,
+  DASHBOARD_COLLECTIONS_LIMIT,
+  ITEMS_PER_PAGE,
+  getPagination,
+} from "@/lib/pagination";
 
 // A distinct item type present in a collection, used for the card footer icons.
 export interface CollectionCardType {
@@ -122,7 +128,7 @@ function buildDashboardCollection(
 // contains (ordered by frequency so the most-common type is first), and the
 // most-common type's color for the card's border tint.
 export async function getDashboardCollections(
-  limit = 6,
+  limit = DASHBOARD_COLLECTIONS_LIMIT,
 ): Promise<DashboardCollection[]> {
   const userId = await requireUserId();
   const collections = await prisma.collection.findMany({
@@ -133,6 +139,47 @@ export async function getDashboardCollections(
   });
 
   return collections.map(buildDashboardCollection);
+}
+
+// A page of the current user's collections for the /collections list page.
+// `collections` holds only the current page; `page` / `totalPages` describe the
+// full set for the pagination control.
+export interface CollectionsPage {
+  collections: DashboardCollection[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
+}
+
+// Fetches one page of the current user's collections (most recent first), each
+// as a DashboardCollection card view model. Only the requested page's rows are
+// fetched (COLLECTIONS_PER_PAGE per page), rather than loading every collection.
+export async function getCollectionsPage(
+  requestedPage = 1,
+): Promise<CollectionsPage> {
+  const userId = await requireUserId();
+
+  const totalCount = await prisma.collection.count({ where: { userId } });
+  const { page, totalPages, skip, take } = getPagination(
+    requestedPage,
+    totalCount,
+    COLLECTIONS_PER_PAGE,
+  );
+
+  const collections = await prisma.collection.findMany({
+    where: { userId },
+    orderBy: { createdAt: "desc" },
+    skip,
+    take,
+    include: dashboardCollectionInclude,
+  });
+
+  return {
+    collections: collections.map(buildDashboardCollection),
+    totalCount,
+    page,
+    totalPages,
+  };
 }
 
 // All of the current user's collections for the sidebar (most recent first),
@@ -294,6 +341,9 @@ export interface CollectionDetailType extends DashboardItemType {
 }
 
 // A single collection with its items, for the /collections/[id] detail page.
+// Paginated: `items` holds only the current page, while `itemCount` and `types`
+// describe the whole collection (so the header count and type chips stay stable
+// across pages), and `page` / `totalPages` drive the pagination control.
 export interface CollectionDetail {
   id: string;
   name: string;
@@ -301,42 +351,79 @@ export interface CollectionDetail {
   isFavorite: boolean;
   itemCount: number;
   types: CollectionDetailType[]; // distinct types present, most-common first
-  items: DashboardItem[]; // most recently added first
+  items: DashboardItem[]; // current page, most recently added first
+  page: number;
+  totalPages: number;
 }
 
 // Full detail for one of the current user's collections, by id. Scoped to the
 // session user via `findFirst({ where: { id, userId } })`, so another user's id
-// (or an unknown id) resolves to null and the page can render a 404. Items are
-// hydrated through the shared item include/mapper (no N+1), ordered by when they
-// were added to the collection.
+// (or an unknown id) resolves to null and the page can render a 404. Only the
+// requested page of items is fetched (COLLECTIONS_PER_PAGE per page); the type
+// chips reflect the whole collection via a separate groupBy aggregate, not just
+// the current page. Items are hydrated through the shared item include/mapper.
 export async function getCollectionDetail(
   id: string,
+  requestedPage = 1,
 ): Promise<CollectionDetail | null> {
   const userId = await requireUserId();
 
-  const collection = await prisma.collection.findFirst({
-    where: { id, userId },
-    include: {
-      items: {
-        orderBy: { addedAt: "desc" },
-        include: { item: { include: itemInclude } },
-      },
-    },
-  });
+  // Ownership + total count + whole-collection type distribution, in parallel.
+  const [collection, totalCount, typeGroups] = await Promise.all([
+    prisma.collection.findFirst({
+      where: { id, userId },
+      select: { id: true, name: true, description: true, isFavorite: true },
+    }),
+    prisma.itemCollection.count({ where: { collectionId: id } }),
+    prisma.item.groupBy({
+      by: ["itemTypeId"],
+      where: { collections: { some: { collectionId: id } } },
+      _count: true,
+    }),
+  ]);
   if (!collection) return null;
 
-  const items = collection.items.map(({ item }) => toDashboardItem(item));
+  const { page, totalPages, skip, take } = getPagination(
+    requestedPage,
+    totalCount,
+    ITEMS_PER_PAGE,
+  );
 
-  // Distinct item types present, each with its item count, ordered by frequency
-  // (most-common first).
-  const typeById = new Map<string, DashboardItemType>();
-  const frequency = new Map<string, number>();
-  for (const { type } of items) {
-    if (!typeById.has(type.id)) typeById.set(type.id, type);
-    frequency.set(type.id, (frequency.get(type.id) ?? 0) + 1);
-  }
-  const types: CollectionDetailType[] = [...typeById.values()]
-    .map((type) => ({ ...type, count: frequency.get(type.id) ?? 0 }))
+  // Page of items + the type rows for the chips (only the types actually
+  // present), in parallel.
+  const typeIds = typeGroups.map((group) => group.itemTypeId);
+  const [joinRows, typeRows] = await Promise.all([
+    prisma.itemCollection.findMany({
+      where: { collectionId: id },
+      orderBy: { addedAt: "desc" },
+      skip,
+      take,
+      include: { item: { include: itemInclude } },
+    }),
+    typeIds.length
+      ? prisma.itemType.findMany({
+          where: { id: { in: typeIds } },
+          select: { id: true, name: true, icon: true, color: true },
+        })
+      : Promise.resolve([]),
+  ]);
+
+  const items = joinRows.map(({ item }) => toDashboardItem(item));
+
+  // Distinct types across the whole collection, each with its total count,
+  // ordered by frequency (most-common first).
+  const countByTypeId = new Map(
+    typeGroups.map((group) => [group.itemTypeId, group._count]),
+  );
+  const types: CollectionDetailType[] = typeRows
+    .map((row) => ({
+      id: row.id,
+      name: row.name,
+      label: toLabel(row.name),
+      icon: row.icon,
+      color: row.color,
+      count: countByTypeId.get(row.id) ?? 0,
+    }))
     .sort((a, b) => b.count - a.count);
 
   return {
@@ -344,9 +431,11 @@ export async function getCollectionDetail(
     name: collection.name,
     description: collection.description,
     isFavorite: collection.isFavorite,
-    itemCount: collection.items.length,
+    itemCount: totalCount,
     types,
     items,
+    page,
+    totalPages,
   };
 }
 
