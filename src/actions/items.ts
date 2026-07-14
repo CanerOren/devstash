@@ -64,6 +64,10 @@ const createItemSchema = z
       .array(z.string())
       .default([])
       .transform((arr) => arr.map((tag) => tag.trim()).filter(Boolean)),
+    collectionIds: z
+      .array(z.string())
+      .default([])
+      .transform((arr) => arr.map((id) => id.trim()).filter(Boolean)),
   })
   // Links must carry a URL (nullableUrl already validated the format when present).
   .refine((data) => data.type !== "link" || data.url !== null, {
@@ -121,6 +125,8 @@ export async function createItem(
       fileSize: isFileType ? parsed.data.fileSize : null,
       // Dedupe so two identical tags don't collide on the ItemTag composite key.
       tags: [...new Set(parsed.data.tags)],
+      // Dedupe so two identical ids don't collide on the ItemCollection key.
+      collectionIds: [...new Set(parsed.data.collectionIds)],
     };
 
     const created = await createItemQuery(data);
@@ -147,6 +153,10 @@ const updateItemSchema = z.object({
     .array(z.string())
     .default([])
     .transform((arr) => arr.map((tag) => tag.trim()).filter(Boolean)),
+  collectionIds: z
+    .array(z.string())
+    .default([])
+    .transform((arr) => arr.map((id) => id.trim()).filter(Boolean)),
 });
 
 export type UpdateItemInput = z.input<typeof updateItemSchema>;
@@ -181,6 +191,8 @@ export async function updateItem(
       language: parsed.data.language,
       // Dedupe so two identical tags don't collide on the ItemTag composite key.
       tags: [...new Set(parsed.data.tags)],
+      // Dedupe so two identical ids don't collide on the ItemCollection key.
+      collectionIds: [...new Set(parsed.data.collectionIds)],
     };
 
     const updated = await updateItemQuery(itemId, data);

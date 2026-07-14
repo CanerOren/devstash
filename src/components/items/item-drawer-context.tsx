@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 
 import type { DashboardItem } from "@/lib/db/items";
+import type { CollectionOption } from "@/lib/db/collections";
 import {
   ItemDrawer,
   type ItemDetailResponse,
@@ -29,8 +30,11 @@ export function useItemDrawer(): ItemDrawerContextValue {
 // inside. Card data is already on the page; full detail is fetched on click.
 export function ItemDrawerProvider({
   children,
+  collections,
 }: {
   children: React.ReactNode;
+  // The user's collections, threaded down to the drawer's edit form.
+  collections: CollectionOption[];
 }) {
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState<DashboardItem | null>(null);
@@ -108,6 +112,7 @@ export function ItemDrawerProvider({
         error={error}
         onUpdated={handleUpdated}
         onDeleted={handleDeleted}
+        collections={collections}
       />
     </ItemDrawerContext.Provider>
   );

@@ -4,13 +4,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // and @/lib/db/helpers (whose requireUserId pulls in @/auth). Mock both so these
 // tests need no DB, env, or session. vi.hoisted creates the prisma mock fns
 // before the hoisted vi.mock factories run, so they can be referenced inside.
-const { collectionCreate } = vi.hoisted(() => ({
+const { collectionCreate, collectionFindMany } = vi.hoisted(() => ({
   collectionCreate: vi.fn(),
+  collectionFindMany: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    collection: { create: collectionCreate },
+    collection: { create: collectionCreate, findMany: collectionFindMany },
   },
 }));
 
@@ -19,7 +20,7 @@ vi.mock("@/lib/db/helpers", () => ({
   toLabel: (name: string) => name.charAt(0).toUpperCase() + name.slice(1),
 }));
 
-import { createCollection } from "@/lib/db/collections";
+import { createCollection, getCollectionOptions } from "@/lib/db/collections";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -79,5 +80,24 @@ describe("createCollection query", () => {
       }),
     );
     expect(result.description).toBeNull();
+  });
+});
+
+describe("getCollectionOptions query", () => {
+  it("returns the user's collections as { id, name }, scoped and alphabetical", async () => {
+    const rows = [
+      { id: "c_1", name: "AI Workflows" },
+      { id: "c_2", name: "React Patterns" },
+    ];
+    collectionFindMany.mockResolvedValue(rows);
+
+    const result = await getCollectionOptions();
+
+    expect(collectionFindMany).toHaveBeenCalledWith({
+      where: { userId: "user_1" },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true },
+    });
+    expect(result).toEqual(rows);
   });
 });

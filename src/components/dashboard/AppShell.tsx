@@ -4,7 +4,10 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import { ItemDrawerProvider } from "@/components/items/item-drawer-context";
 import { Toaster } from "@/components/ui/sonner";
 import { getSidebarItemTypes, toCreatableTypes } from "@/lib/db/items";
-import { getSidebarCollections } from "@/lib/db/collections";
+import {
+  getSidebarCollections,
+  getCollectionOptions,
+} from "@/lib/db/collections";
 import { getCurrentUser } from "@/lib/db/user";
 
 // The authenticated app shell: a fixed top bar over a sidebar + scrollable main
@@ -16,9 +19,10 @@ export async function AppShell({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [itemTypes, collections, user] = await Promise.all([
+  const [itemTypes, collections, collectionOptions, user] = await Promise.all([
     getSidebarItemTypes(),
     getSidebarCollections(),
+    getCollectionOptions(),
     getCurrentUser(),
   ]);
 
@@ -32,11 +36,13 @@ export async function AppShell({
       {/* Pin the shell to the viewport so only <main> scrolls — the TopBar and
           sidebar stay fixed instead of scrolling out of view. */}
       <div className="flex h-screen flex-col overflow-hidden">
-        <TopBar createTypes={createTypes} />
+        <TopBar createTypes={createTypes} collections={collectionOptions} />
         <div className="flex flex-1 overflow-hidden">
           <Sidebar itemTypes={itemTypes} collections={collections} user={user} />
           <main className="flex-1 overflow-y-auto p-6">
-            <ItemDrawerProvider>{children}</ItemDrawerProvider>
+            <ItemDrawerProvider collections={collectionOptions}>
+              {children}
+            </ItemDrawerProvider>
           </main>
         </div>
       </div>

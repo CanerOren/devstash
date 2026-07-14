@@ -9,12 +9,19 @@ import { useSidebar } from "@/components/dashboard/sidebar-context";
 import { CreateItemDialog } from "@/components/items/CreateItemDialog";
 import { CreateCollectionDialog } from "@/components/items/CreateCollectionDialog";
 import type { CreatableType } from "@/lib/db/items";
+import type { CollectionOption } from "@/lib/db/collections";
 
 // Top bar for the dashboard shell.
 // The search box is display-only; the menu button opens the sidebar drawer on
 // mobile (desktop collapse lives inside the sidebar). The New Collection and New
 // Item buttons open their respective create modals.
-export function TopBar({ createTypes }: { createTypes: CreatableType[] }) {
+export function TopBar({
+  createTypes,
+  collections,
+}: {
+  createTypes: CreatableType[];
+  collections: CollectionOption[];
+}) {
   const { toggleMobile } = useSidebar();
 
   return (
@@ -52,7 +59,7 @@ export function TopBar({ createTypes }: { createTypes: CreatableType[] }) {
 
       <div className="ml-auto flex items-center gap-2">
         <CreateCollectionDialog />
-        <CreateItemDialog types={createTypes} />
+        <CreateItemDialog types={createTypes} collections={collections} />
       </div>
     </header>
   );

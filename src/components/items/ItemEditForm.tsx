@@ -1,13 +1,24 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CodeEditor } from "@/components/items/CodeEditor";
 import { MarkdownEditor } from "@/components/items/MarkdownEditor";
+import type { CollectionOption } from "@/lib/db/collections";
 
-// Controlled edit-form state — all strings (raw input values). The server action
-// normalizes empties to null and splits the comma-separated tags.
+// Controlled edit-form state. Mostly raw strings; the server action normalizes
+// empties to null and splits the comma-separated tags. `collectionIds` is the
+// set of collections the item belongs to (an id list, not a string).
 export interface ItemEditState {
   title: string;
   description: string;
@@ -15,6 +26,7 @@ export interface ItemEditState {
   language: string;
   url: string;
   tags: string; // comma-separated
+  collectionIds: string[];
 }
 
 // Which optional fields a given item type exposes (per the spec's table).
@@ -32,6 +44,7 @@ export function initialEditState(detail: {
   language: string | null;
   url: string | null;
   tags: string[];
+  collections: { id: string; name: string }[];
 }): ItemEditState {
   return {
     title: detail.title,
@@ -40,6 +53,7 @@ export function initialEditState(detail: {
     language: detail.language ?? "",
     url: detail.url ?? "",
     tags: detail.tags.join(", "),
+    collectionIds: detail.collections.map((collection) => collection.id),
   };
 }
 
@@ -48,15 +62,37 @@ interface ItemEditFormProps {
   typeName: string;
   value: ItemEditState;
   onChange: (next: ItemEditState) => void;
+  // The user's collections, for the collection multi-select.
+  collections: CollectionOption[];
 }
 
 // Presentational, controlled edit form. Renders the always-on fields (title,
 // description, tags) plus the type-specific ones (content / language / url).
 // Save/Cancel live in the drawer header, so they're not rendered here; the
 // drawer owns this state and the submit logic.
-export function ItemEditForm({ typeName, value, onChange }: ItemEditFormProps) {
+export function ItemEditForm({
+  typeName,
+  value,
+  onChange,
+  collections,
+}: ItemEditFormProps) {
   const set = <K extends keyof ItemEditState>(key: K, v: ItemEditState[K]) =>
     onChange({ ...value, [key]: v });
+
+  // Toggle a collection id in/out of the selected set.
+  const toggleCollection = (id: string) =>
+    set(
+      "collectionIds",
+      value.collectionIds.includes(id)
+        ? value.collectionIds.filter((c) => c !== id)
+        : [...value.collectionIds, id],
+    );
+
+  // Comma-joined names of the selected collections, for the dropdown trigger.
+  const selectedLabel = collections
+    .filter((collection) => value.collectionIds.includes(collection.id))
+    .map((collection) => collection.name)
+    .join(", ");
 
   const showContent = CONTENT_TYPES.has(typeName);
   const showLanguage = LANGUAGE_TYPES.has(typeName);
@@ -144,6 +180,52 @@ export function ItemEditForm({ typeName, value, onChange }: ItemEditFormProps) {
         />
         <p className="text-xs text-muted-foreground">Separate tags with commas.</p>
       </Field>
+
+      <div className="space-y-2">
+        <Label>Collections</Label>
+        {collections.length === 0 ? (
+          <p className="text-xs text-muted-foreground">
+            No collections yet — create one from the top bar.
+          </p>
+        ) : (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-between font-normal"
+              >
+                <span
+                  className={
+                    selectedLabel
+                      ? "truncate"
+                      : "truncate text-muted-foreground"
+                  }
+                >
+                  {selectedLabel || "Select collections"}
+                </span>
+                <ChevronDown className="size-4 shrink-0 opacity-50" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="max-h-64 w-(--radix-dropdown-menu-trigger-width) overflow-y-auto"
+            >
+              {collections.map((collection) => (
+                <DropdownMenuCheckboxItem
+                  key={collection.id}
+                  checked={value.collectionIds.includes(collection.id)}
+                  // Keep the menu open so several can be toggled in one pass.
+                  onSelect={(e) => e.preventDefault()}
+                  onCheckedChange={() => toggleCollection(collection.id)}
+                >
+                  {collection.name}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </div>
   );
 }
