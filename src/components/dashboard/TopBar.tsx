@@ -1,18 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { FolderPlus, Menu, Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useSidebar } from "@/components/dashboard/sidebar-context";
 import { CreateItemDialog } from "@/components/items/CreateItemDialog";
+import { CreateCollectionDialog } from "@/components/items/CreateCollectionDialog";
 import type { CreatableType } from "@/lib/db/items";
 
 // Top bar for the dashboard shell.
-// The search + New Collection buttons are display-only; the menu button opens
-// the sidebar drawer on mobile (desktop collapse lives inside the sidebar). The
-// New Item button opens the create-item modal.
+// The search box is display-only; the menu button opens the sidebar drawer on
+// mobile (desktop collapse lives inside the sidebar). The New Collection and New
+// Item buttons open their respective create modals.
 export function TopBar({ createTypes }: { createTypes: CreatableType[] }) {
   const { toggleMobile } = useSidebar();
 
@@ -50,10 +51,7 @@ export function TopBar({ createTypes }: { createTypes: CreatableType[] }) {
       </div>
 
       <div className="ml-auto flex items-center gap-2">
-        <Button variant="outline" size="sm" disabled>
-          <FolderPlus />
-          New Collection
-        </Button>
+        <CreateCollectionDialog />
         <CreateItemDialog types={createTypes} />
       </div>
     </header>

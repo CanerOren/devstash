@@ -148,6 +148,47 @@ export async function getSidebarCollections(): Promise<SidebarCollection[]> {
   });
 }
 
+// The fields accepted when creating a collection. Validated by the server
+// action's Zod schema before reaching here, so values are already trimmed and
+// "" collapsed to null.
+export interface CreateCollectionData {
+  name: string;
+  description: string | null;
+}
+
+// Creates a collection for the current user and returns its DashboardCollection
+// view model. A freshly created collection has no items, so `types` is empty and
+// `primaryColor` falls back to the default border tint.
+export async function createCollection(
+  data: CreateCollectionData,
+): Promise<DashboardCollection> {
+  const userId = await requireUserId();
+
+  const created = await prisma.collection.create({
+    data: {
+      name: data.name,
+      description: data.description,
+      userId,
+    },
+    select: {
+      id: true,
+      name: true,
+      description: true,
+      isFavorite: true,
+    },
+  });
+
+  return {
+    id: created.id,
+    name: created.name,
+    description: created.description,
+    isFavorite: created.isFavorite,
+    itemCount: 0,
+    types: [],
+    primaryColor: "var(--border)",
+  };
+}
+
 // Aggregate collection counts for the dashboard stat cards.
 export async function getCollectionStats(): Promise<CollectionStats> {
   const userId = await requireUserId();
