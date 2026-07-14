@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const {
   findFirst,
   itemFindMany,
+  itemCount,
   itemCreate,
   itemUpdate,
   itemDelete,
@@ -17,6 +18,7 @@ const {
 } = vi.hoisted(() => ({
   findFirst: vi.fn(),
   itemFindMany: vi.fn(),
+  itemCount: vi.fn(),
   itemCreate: vi.fn(),
   itemUpdate: vi.fn(),
   itemDelete: vi.fn(),
@@ -31,6 +33,7 @@ vi.mock("@/lib/prisma", () => ({
     item: {
       findFirst,
       findMany: itemFindMany,
+      count: itemCount,
       create: itemCreate,
       update: itemUpdate,
       delete: itemDelete,
@@ -59,6 +62,7 @@ import {
   deleteItem,
   toCreatableTypes,
 } from "@/lib/db/items";
+import { getPagination, ITEMS_PER_PAGE } from "@/lib/pagination";
 
 // A full prisma row as returned by getItemDetail's include shape.
 function detailRow() {
@@ -462,12 +466,14 @@ describe("getItemsByType", () => {
   it("returns null for a slug that matches no system type", async () => {
     itemTypeFindMany.mockResolvedValue(systemTypes);
     expect(await getItemsByType("bananas")).toBeNull();
-    // No item query when the slug doesn't resolve.
+    // No count/item query when the slug doesn't resolve.
+    expect(itemCount).not.toHaveBeenCalled();
     expect(itemFindMany).not.toHaveBeenCalled();
   });
 
   it("resolves the plural slug to its type and returns the user's items of that type", async () => {
     itemTypeFindMany.mockResolvedValue(systemTypes);
+    itemCount.mockResolvedValue(1);
     itemFindMany.mockResolvedValue([
       {
         id: "item_1",
@@ -486,11 +492,53 @@ describe("getItemsByType", () => {
     expect(result?.type).toMatchObject({ name: "snippet", label: "Snippet" });
     expect(result?.items).toHaveLength(1);
     expect(result?.items[0]).toMatchObject({ id: "item_1", tags: [] });
-    // Scoped to the user and the resolved type id.
+    // Total count + first-page metadata come back for the pagination control.
+    expect(result?.totalCount).toBe(1);
+    expect(result?.page).toBe(1);
+    expect(result?.totalPages).toBe(1);
+    // Count and page fetch are both scoped to the user and resolved type id.
+    expect(itemCount).toHaveBeenCalledWith({
+      where: { userId: "user_1", itemTypeId: "t_snippet" },
+    });
     expect(itemFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { userId: "user_1", itemTypeId: "t_snippet" },
+        skip: 0,
+        take: ITEMS_PER_PAGE,
       }),
+    );
+  });
+
+  it("fetches only the requested page's slice (skip/take by page)", async () => {
+    // A count large enough to span multiple pages at any sane page size.
+    const total = ITEMS_PER_PAGE * 4 + 1;
+    const expected = getPagination(2, total, ITEMS_PER_PAGE);
+    itemTypeFindMany.mockResolvedValue(systemTypes);
+    itemCount.mockResolvedValue(total);
+    itemFindMany.mockResolvedValue([]);
+
+    const result = await getItemsByType("snippets", 2);
+
+    expect(result?.page).toBe(2);
+    expect(result?.totalPages).toBe(expected.totalPages);
+    // Page 2 skips the first page's worth of rows.
+    expect(itemFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: expected.skip, take: ITEMS_PER_PAGE }),
+    );
+  });
+
+  it("clamps an out-of-range page to the last page", async () => {
+    const total = ITEMS_PER_PAGE * 4 + 1; // 5 pages
+    const expected = getPagination(999, total, ITEMS_PER_PAGE);
+    itemTypeFindMany.mockResolvedValue(systemTypes);
+    itemCount.mockResolvedValue(total);
+    itemFindMany.mockResolvedValue([]);
+
+    const result = await getItemsByType("snippets", 999);
+
+    expect(result?.page).toBe(expected.totalPages);
+    expect(itemFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skip: expected.skip, take: ITEMS_PER_PAGE }),
     );
   });
 });

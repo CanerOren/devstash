@@ -7,11 +7,13 @@ import {
   toCreatableTypes,
 } from "@/lib/db/items";
 import { getCollectionOptions } from "@/lib/db/collections";
+import { parsePageParam } from "@/lib/pagination";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { ItemCard } from "@/components/dashboard/ItemCard";
 import { ImageCard } from "@/components/items/ImageCard";
 import { FileRow } from "@/components/items/FileRow";
 import { CreateItemDialog } from "@/components/items/CreateItemDialog";
+import { Pagination } from "@/components/pagination/Pagination";
 
 // Reads live per-user data, so render on each request rather than prerendering.
 export const dynamic = "force-dynamic";
@@ -19,18 +21,21 @@ export const dynamic = "force-dynamic";
 // Type-filtered items list, e.g. /items/snippets or /items/notes.
 export default async function ItemsByTypePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ type: string }>;
+  searchParams: Promise<{ page?: string }>;
 }) {
   const { type } = await params;
+  const { page: pageParam } = await searchParams;
   const [result, itemTypes, collectionOptions] = await Promise.all([
-    getItemsByType(type),
+    getItemsByType(type, parsePageParam(pageParam)),
     getSidebarItemTypes(),
     getCollectionOptions(),
   ]);
   if (!result) notFound();
 
-  const { type: itemType, items } = result;
+  const { type: itemType, items, totalCount, page, totalPages } = result;
   const pluralLabel = `${itemType.label}s`;
 
   // Image items render as a thumbnail gallery instead of the standard list card.
@@ -61,7 +66,7 @@ export default async function ItemsByTypePage({
             {pluralLabel}
           </h1>
           <p className="text-sm text-muted-foreground">
-            {items.length} {items.length === 1 ? "item" : "items"}
+            {totalCount} {totalCount === 1 ? "item" : "items"}
           </p>
         </div>
         {canCreate && (
@@ -103,6 +108,13 @@ export default async function ItemsByTypePage({
           </p>
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        basePath={`/items/${type}`}
+      />
     </div>
   );
 }
