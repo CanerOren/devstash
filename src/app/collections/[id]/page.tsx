@@ -7,6 +7,7 @@ import { getTypeIcon } from "@/components/dashboard/type-icons";
 import { ItemCard } from "@/components/dashboard/ItemCard";
 import { ImageCard } from "@/components/items/ImageCard";
 import { FileRow } from "@/components/items/FileRow";
+import { CollectionDetailActions } from "@/components/items/CollectionDetailActions";
 
 // Reads live per-user data, so render on each request rather than prerendering.
 export const dynamic = "force-dynamic";
@@ -37,24 +38,35 @@ export default async function CollectionDetailPage({
     <div className="mx-auto max-w-6xl space-y-8">
       {/* Header */}
       <div className="space-y-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              {collection.name}
-            </h1>
-            {collection.isFavorite && (
-              <Star className="size-5 shrink-0 fill-amber-400 text-amber-400" />
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-semibold tracking-tight">
+                {collection.name}
+              </h1>
+              {collection.isFavorite && (
+                <Star className="size-5 shrink-0 fill-amber-400 text-amber-400" />
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {collection.itemCount}{" "}
+              {collection.itemCount === 1 ? "item" : "items"}
+            </p>
+            {collection.description && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                {collection.description}
+              </p>
             )}
           </div>
-          <p className="text-sm text-muted-foreground">
-            {collection.itemCount}{" "}
-            {collection.itemCount === 1 ? "item" : "items"}
-          </p>
-          {collection.description && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              {collection.description}
-            </p>
-          )}
+
+          <CollectionDetailActions
+            collection={{
+              id: collection.id,
+              name: collection.name,
+              description: collection.description,
+              isFavorite: collection.isFavorite,
+            }}
+          />
         </div>
 
         {/* Item types present in this collection. */}

@@ -4,7 +4,10 @@ import { z } from "zod";
 
 import {
   createCollection as createCollectionQuery,
+  updateCollection as updateCollectionQuery,
+  deleteCollection as deleteCollectionQuery,
   type CreateCollectionData,
+  type UpdateCollectionData,
   type DashboardCollection,
 } from "@/lib/db/collections";
 
@@ -57,6 +60,90 @@ export async function createCollection(
     return { success: true, data: created };
   } catch (error) {
     console.error("[createCollection] failed:", error);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+const updateCollectionSchema = z.object({
+  name: z.string().trim().min(1, "Name is required"),
+  description: nullableText,
+});
+
+export type UpdateCollectionInput = z.input<typeof updateCollectionSchema>;
+
+export interface UpdateCollectionResult {
+  success: boolean;
+  data?: DashboardCollection;
+  error?: string;
+}
+
+// Edits a collection's metadata (name/description). Validates with Zod (the
+// source of truth), then delegates to the query layer, which enforces the user
+// scope and returns the refreshed view model. A null result means the id isn't
+// the user's (or doesn't exist) → "Collection not found.".
+export async function updateCollection(
+  collectionId: string,
+  input: UpdateCollectionInput,
+): Promise<UpdateCollectionResult> {
+  try {
+    const parsed = updateCollectionSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+      };
+    }
+
+    const data: UpdateCollectionData = {
+      name: parsed.data.name,
+      description: parsed.data.description,
+    };
+
+    const updated = await updateCollectionQuery(collectionId, data);
+    if (!updated) {
+      return { success: false, error: "Collection not found." };
+    }
+
+    return { success: true, data: updated };
+  } catch (error) {
+    console.error("[updateCollection] failed:", error);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+const deleteCollectionSchema = z.object({
+  collectionId: z.string().trim().min(1, "Collection id is required"),
+});
+
+export interface DeleteCollectionResult {
+  success: boolean;
+  error?: string;
+}
+
+// Deletes a collection. Validates the id with Zod (the source of truth), then
+// delegates to the query layer, which enforces ownership. The collection's items
+// are preserved — only its membership rows are removed. A false result means the
+// id isn't the user's (or doesn't exist) → "Collection not found.".
+export async function deleteCollection(
+  collectionId: string,
+): Promise<DeleteCollectionResult> {
+  try {
+    const parsed = deleteCollectionSchema.safeParse({ collectionId });
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+      };
+    }
+
+    const deleted = await deleteCollectionQuery(parsed.data.collectionId);
+    if (!deleted) {
+      return { success: false, error: "Collection not found." };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("[deleteCollection] failed:", error);
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }
