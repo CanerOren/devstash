@@ -1,5 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/db/helpers";
+import {
+  normalizeEditorPreferences,
+  type EditorPreferences,
+} from "@/lib/editor-preferences";
 
 // View model for the sidebar user area.
 export interface SidebarUser {
@@ -51,4 +55,18 @@ export async function getProfileUser(): Promise<ProfileUser> {
 
   const { password, ...rest } = user;
   return { ...rest, hasPassword: password !== null };
+}
+
+// The authenticated user's Monaco editor preferences, normalized against the
+// defaults (so a null/partial/legacy JSON column resolves to a complete object).
+// Read on app load and passed to the EditorPreferences context/provider.
+export async function getEditorPreferences(): Promise<EditorPreferences> {
+  const userId = await requireUserId();
+
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { editorPreferences: true },
+  });
+
+  return normalizeEditorPreferences(user.editorPreferences);
 }

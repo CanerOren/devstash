@@ -9,13 +9,13 @@ import Editor, {
 import { Check, Copy } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useEditorPreferences } from "@/components/editor/editor-preferences-context";
+import type { EditorTheme } from "@/lib/editor-preferences";
 
 // Fluid height: the editor grows with its content but never past MAX_HEIGHT
 // (then it scrolls internally). MIN_HEIGHT keeps short snippets from collapsing.
 const MIN_HEIGHT = 48;
 const MAX_HEIGHT = 400;
-
-const MONACO_THEME = "devstash-dark";
 
 // Maps the stored `language` value (free text, e.g. "bash") onto a Monaco
 // language id. Unknown / empty languages fall back to plain text.
@@ -49,11 +49,38 @@ function languageLabel(language?: string | null): string {
   return raw && raw.length > 0 ? raw : "plain text";
 }
 
-// Defines a dark Monaco theme whose surface, gutter, line highlight, and
-// scrollbar match the app's dark palette (see globals.css). Token colors inherit
-// from vs-dark, which reads well on this background.
-function defineTheme(monaco: Monaco) {
-  monaco.editor.defineTheme(MONACO_THEME, {
+// The three selectable themes (per the settings dropdown) mapped to their
+// registered Monaco theme name. Each is defined in `defineThemes` below.
+const MONACO_THEME_NAMES: Record<EditorTheme, string> = {
+  "vs-dark": "devstash-vs-dark",
+  monokai: "devstash-monokai",
+  "github-dark": "devstash-github-dark",
+};
+
+// Each theme's editor surface color, used for the container background (so it
+// matches while Monaco loads) and kept in sync with the `editor.background`
+// values in defineThemes.
+const THEME_SURFACE: Record<EditorTheme, string> = {
+  "vs-dark": "#171717",
+  monokai: "#272822",
+  "github-dark": "#0d1117",
+};
+
+// Shared translucent-white scrollbar slider, which reads well on any dark
+// surface (matches the app's other scroll areas).
+const SCROLLBAR_COLORS = {
+  "scrollbarSlider.background": "#ffffff20",
+  "scrollbarSlider.hoverBackground": "#ffffff33",
+  "scrollbarSlider.activeBackground": "#ffffff40",
+} as const;
+
+// Registers all three custom themes. Each is based on vs-dark (so any token not
+// explicitly colored still gets a sensible dark-theme color) but overrides the
+// surface + common token colors to match the named theme. Called in beforeMount.
+function defineThemes(monaco: Monaco) {
+  // vs-dark: the app-matched dark surface (neutral-900) with vs-dark token
+  // colors, which read well on this background.
+  monaco.editor.defineTheme(MONACO_THEME_NAMES["vs-dark"], {
     base: "vs-dark",
     inherit: true,
     rules: [],
@@ -66,9 +93,73 @@ function defineTheme(monaco: Monaco) {
       "editor.lineHighlightBorder": "#00000000",
       "editorWidget.background": "#171717",
       "editorWidget.border": "#ffffff1a",
-      "scrollbarSlider.background": "#ffffff20",
-      "scrollbarSlider.hoverBackground": "#ffffff33",
-      "scrollbarSlider.activeBackground": "#ffffff40",
+      ...SCROLLBAR_COLORS,
+    },
+  });
+
+  // Monokai: the classic warm-green/pink palette on #272822.
+  monaco.editor.defineTheme(MONACO_THEME_NAMES.monokai, {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "", foreground: "f8f8f2" },
+      { token: "comment", foreground: "75715e", fontStyle: "italic" },
+      { token: "string", foreground: "e6db74" },
+      { token: "keyword", foreground: "f92672" },
+      { token: "number", foreground: "ae81ff" },
+      { token: "regexp", foreground: "e6db74" },
+      { token: "type", foreground: "66d9ef", fontStyle: "italic" },
+      { token: "type.identifier", foreground: "66d9ef", fontStyle: "italic" },
+      { token: "operator", foreground: "f92672" },
+      { token: "delimiter", foreground: "f8f8f2" },
+      { token: "tag", foreground: "f92672" },
+      { token: "attribute.name", foreground: "a6e22e" },
+      { token: "attribute.value", foreground: "e6db74" },
+    ],
+    colors: {
+      "editor.background": "#272822",
+      "editorGutter.background": "#272822",
+      "editor.foreground": "#f8f8f2",
+      "editorLineNumber.foreground": "#90908a",
+      "editorLineNumber.activeForeground": "#f8f8f2",
+      "editor.lineHighlightBackground": "#3e3d32",
+      "editor.lineHighlightBorder": "#00000000",
+      "editorWidget.background": "#272822",
+      "editorWidget.border": "#ffffff1a",
+      ...SCROLLBAR_COLORS,
+    },
+  });
+
+  // GitHub Dark: GitHub's dark palette on #0d1117.
+  monaco.editor.defineTheme(MONACO_THEME_NAMES["github-dark"], {
+    base: "vs-dark",
+    inherit: true,
+    rules: [
+      { token: "", foreground: "c9d1d9" },
+      { token: "comment", foreground: "8b949e", fontStyle: "italic" },
+      { token: "string", foreground: "a5d6ff" },
+      { token: "keyword", foreground: "ff7b72" },
+      { token: "number", foreground: "79c0ff" },
+      { token: "regexp", foreground: "7ee787" },
+      { token: "type", foreground: "ffa657" },
+      { token: "type.identifier", foreground: "ffa657" },
+      { token: "operator", foreground: "ff7b72" },
+      { token: "delimiter", foreground: "c9d1d9" },
+      { token: "tag", foreground: "7ee787" },
+      { token: "attribute.name", foreground: "79c0ff" },
+      { token: "attribute.value", foreground: "a5d6ff" },
+    ],
+    colors: {
+      "editor.background": "#0d1117",
+      "editorGutter.background": "#0d1117",
+      "editor.foreground": "#c9d1d9",
+      "editorLineNumber.foreground": "#484f58",
+      "editorLineNumber.activeForeground": "#c9d1d9",
+      "editor.lineHighlightBackground": "#161b22",
+      "editor.lineHighlightBorder": "#00000000",
+      "editorWidget.background": "#0d1117",
+      "editorWidget.border": "#ffffff1a",
+      ...SCROLLBAR_COLORS,
     },
   });
 }
@@ -92,6 +183,7 @@ export function CodeEditor({
   readOnly = false,
   className,
 }: CodeEditorProps) {
+  const { preferences } = useEditorPreferences();
   const [height, setHeight] = useState(MIN_HEIGHT);
   const [copied, setCopied] = useState(false);
 
@@ -118,10 +210,13 @@ export function CodeEditor({
   const options: NonNullable<EditorProps["options"]> = {
     readOnly,
     domReadOnly: readOnly,
-    minimap: { enabled: false },
+    // From user preferences (settings › Editor Preferences).
+    minimap: { enabled: preferences.minimap },
+    fontSize: preferences.fontSize,
+    lineHeight: Math.round(preferences.fontSize * 1.5),
+    tabSize: preferences.tabSize,
+    wordWrap: preferences.wordWrap ? "on" : "off",
     scrollBeyondLastLine: false,
-    fontSize: 13,
-    lineHeight: 20,
     fontFamily: "var(--font-geist-mono), ui-monospace, monospace",
     fontLigatures: false,
     padding: { top: 12, bottom: 12 },
@@ -139,17 +234,18 @@ export function CodeEditor({
       alwaysConsumeMouseWheel: false,
     },
     automaticLayout: true,
-    tabSize: 2,
-    wordWrap: "off",
     contextmenu: !readOnly,
   };
 
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-lg border border-border bg-[#171717]",
+        "overflow-hidden rounded-lg border border-border",
         className,
       )}
+      // Match the container to the active theme's surface so there's no
+      // neutral-900 flash behind monokai / github-dark while Monaco loads.
+      style={{ backgroundColor: THEME_SURFACE[preferences.theme] }}
     >
       {/* macOS-style window header */}
       <div className="flex items-center gap-2 border-b border-border bg-white/[0.03] px-3 py-2">
@@ -183,9 +279,9 @@ export function CodeEditor({
       <Editor
         value={value}
         language={toMonacoLanguage(language)}
-        theme={MONACO_THEME}
+        theme={MONACO_THEME_NAMES[preferences.theme]}
         height={height}
-        beforeMount={defineTheme}
+        beforeMount={defineThemes}
         onMount={handleMount}
         onChange={(next) => onChange?.(next ?? "")}
         options={options}
