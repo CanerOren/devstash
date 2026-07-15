@@ -58,7 +58,11 @@ export async function AppShell({
               collections={collections}
               user={user}
             />
-            <main className="flex-1 overflow-y-auto p-6">
+            {/* `relative` makes <main> the containing block for absolutely
+                positioned descendants (e.g. the CommandPalette's sr-only dialog
+                header). Without it those escape to the document, stretching
+                <html> and creating a phantom outer scrollbar into empty space. */}
+            <main className="relative flex-1 overflow-y-auto p-6">
               <ItemDrawerProvider collections={collectionOptions}>
                 {children}
                 {/* Inside the drawer provider so selecting a result can open the
