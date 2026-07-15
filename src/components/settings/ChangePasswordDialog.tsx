@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { ChangePasswordForm } from "@/components/profile/ChangePasswordForm";
+import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 
 // A "Change Password" button that opens the change-password form in a modal.
 // Only rendered for email/password accounts (the page hides it for GitHub

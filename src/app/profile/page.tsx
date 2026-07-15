@@ -8,8 +8,6 @@ import { getItemStats, getSidebarItemTypes } from "@/lib/db/items";
 import { getCollectionStats } from "@/lib/db/collections";
 import { UserAvatar } from "@/components/user/UserAvatar";
 import { getTypeIcon } from "@/components/dashboard/type-icons";
-import { ChangePasswordDialog } from "@/components/profile/ChangePasswordDialog";
-import { DeleteAccountDialog } from "@/components/profile/DeleteAccountDialog";
 
 // Reads the authenticated user's data, so render per request.
 export const dynamic = "force-dynamic";
@@ -132,37 +130,6 @@ export default async function ProfilePage() {
             </li>
           ))}
         </ul>
-      </section>
-
-      {/* Account Settings */}
-      <section className="rounded-xl border border-border bg-card p-6">
-        <h2 className="mb-5 text-lg font-semibold">Account Settings</h2>
-
-        <div className="space-y-4">
-          {user.hasPassword && (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">Change password</p>
-                <p className="text-sm text-muted-foreground">
-                  Update the password you use to sign in.
-                </p>
-              </div>
-              <ChangePasswordDialog />
-            </div>
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-            <div>
-              <p className="text-sm font-medium text-destructive">
-                Delete account
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Permanently delete your account and all of your data.
-              </p>
-            </div>
-            <DeleteAccountDialog />
-          </div>
-        </div>
       </section>
     </div>
   );
