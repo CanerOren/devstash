@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { getProfileUser } from "@/lib/db/user";
 import { ChangePasswordDialog } from "@/components/settings/ChangePasswordDialog";
 import { DeleteAccountDialog } from "@/components/settings/DeleteAccountDialog";
+import { EditorPreferencesSection } from "@/components/settings/EditorPreferencesSection";
 
 // Reads the authenticated user's data, so render per request.
 export const dynamic = "force-dynamic";
@@ -57,6 +58,10 @@ export default async function SettingsPage() {
           </div>
         </div>
       </section>
+
+      {/* Editor Preferences (auto-saved via the shared editor-preferences
+          context mounted in AppShell). */}
+      <EditorPreferencesSection />
     </div>
   );
 }
