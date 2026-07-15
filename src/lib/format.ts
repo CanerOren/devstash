@@ -8,3 +8,12 @@ export function formatFullDate(value: string | Date): string {
     day: "numeric",
   });
 }
+
+// Formats a date as "Jan 15, 2024" — a compact form for dense list rows.
+export function formatShortDate(value: string | Date): string {
+  return new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}

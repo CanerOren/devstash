@@ -12,6 +12,7 @@ const PROTECTED_PREFIXES = [
   "/settings",
   "/items",
   "/collections",
+  "/favorites",
 ];
 
 export const proxy = auth((req) => {
@@ -36,5 +37,6 @@ export const config = {
     "/settings/:path*",
     "/items/:path*",
     "/collections/:path*",
+    "/favorites/:path*",
   ],
 };

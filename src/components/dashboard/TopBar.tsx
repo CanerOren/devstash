@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Menu, Search } from "lucide-react";
+import { Menu, Search, Star } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useSidebar } from "@/components/dashboard/sidebar-context";
@@ -74,6 +74,11 @@ export function TopBar({
       </button>
 
       <div className="ml-auto flex items-center gap-2">
+        <Button variant="ghost" size="icon" asChild aria-label="Favorites">
+          <Link href="/favorites">
+            <Star />
+          </Link>
+        </Button>
         <CreateCollectionDialog />
         <CreateItemDialog types={createTypes} collections={collections} />
       </div>

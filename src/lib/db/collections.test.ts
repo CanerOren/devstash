@@ -59,6 +59,7 @@ import {
   getCollectionDetail,
   getCollectionOptions,
   getCollectionsPage,
+  getFavoriteCollections,
 } from "@/lib/db/collections";
 import {
   getPagination,
@@ -405,6 +406,48 @@ describe("getCollectionsPage query", () => {
     expect(collectionFindMany).toHaveBeenCalledWith(
       expect.objectContaining({ skip: expected.skip, take: COLLECTIONS_PER_PAGE }),
     );
+  });
+});
+
+describe("getFavoriteCollections query", () => {
+  const favoriteRow = (id: string) => ({
+    id,
+    name: id,
+    description: null,
+    isFavorite: true,
+    updatedAt: new Date("2024-02-01T00:00:00Z"),
+    items: [
+      {
+        item: {
+          itemType: { id: "t1", name: "snippet", icon: "Code", color: "#3b82f6" },
+        },
+      },
+    ],
+  });
+
+  it("scopes to the user's favorites, most recently updated first", async () => {
+    collectionFindMany.mockResolvedValue([]);
+    await getFavoriteCollections();
+    expect(collectionFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "user_1", isFavorite: true },
+        orderBy: { updatedAt: "desc" },
+      }),
+    );
+  });
+
+  it("maps rows to the dashboard collection view model with updatedAt attached", async () => {
+    collectionFindMany.mockResolvedValue([favoriteRow("c_1")]);
+    const [collection] = await getFavoriteCollections();
+
+    expect(collection).toMatchObject({
+      id: "c_1",
+      name: "c_1",
+      isFavorite: true,
+      itemCount: 1,
+      primaryColor: "#3b82f6",
+      updatedAt: new Date("2024-02-01T00:00:00Z"),
+    });
   });
 });
 
