@@ -170,6 +170,30 @@ export async function getRecentItems(
   return items.map(toDashboardItem);
 }
 
+// A favorited item row for the /favorites page. Extends the dashboard item view
+// model with `updatedAt`, which stands in for "favorited at" (the schema has no
+// per-favorite timestamp): it's both the sort key and the row's displayed date.
+export interface FavoriteItem extends DashboardItem {
+  updatedAt: Date;
+}
+
+// The current user's favorited items, most recently updated first. Structurally
+// a superset of DashboardItem, so a row can pass it straight to the item drawer.
+export async function getFavoriteItems(): Promise<FavoriteItem[]> {
+  const userId = await requireUserId();
+  const items = await prisma.item.findMany({
+    where: { userId, isFavorite: true },
+    orderBy: { updatedAt: "desc" },
+    take: 100,
+    include: itemInclude,
+  });
+
+  return items.map((item) => ({
+    ...toDashboardItem(item),
+    updatedAt: item.updatedAt,
+  }));
+}
+
 // Items of a single type, resolved from its plural URL slug, for the
 // /items/[type] list page. Paginated: `items` holds only the current page, and
 // `page` / `totalPages` describe the full result set for the pagination control.

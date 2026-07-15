@@ -57,6 +57,7 @@ import {
   getItemDetail,
   getItemFileRef,
   getItemsByType,
+  getFavoriteItems,
   createItem,
   updateItem,
   deleteItem,
@@ -164,6 +165,68 @@ describe("getItemFileRef", () => {
     };
     findFirst.mockResolvedValue(row);
     expect(await getItemFileRef("item_1")).toEqual(row);
+  });
+});
+
+describe("getFavoriteItems", () => {
+  // A row as returned by the itemInclude findMany (all scalars + type + tags).
+  function favoriteRow() {
+    return {
+      id: "item_1",
+      title: "useAuth Hook",
+      description: "Custom authentication hook",
+      isFavorite: true,
+      isPinned: false,
+      createdAt: new Date("2024-01-15T00:00:00Z"),
+      updatedAt: new Date("2024-01-16T00:00:00Z"),
+      fileUrl: null,
+      fileName: null,
+      fileSize: null,
+      itemType: {
+        id: "t_snippet",
+        name: "snippet",
+        icon: "Code",
+        color: "#3b82f6",
+      },
+      tags: [{ tag: { name: "react" } }],
+    };
+  }
+
+  it("scopes to the user's favorites, most recently updated first", async () => {
+    itemFindMany.mockResolvedValue([]);
+    await getFavoriteItems();
+    expect(itemFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "user_1", isFavorite: true },
+        orderBy: { updatedAt: "desc" },
+      }),
+    );
+  });
+
+  it("maps rows to the dashboard item view model with updatedAt attached", async () => {
+    itemFindMany.mockResolvedValue([favoriteRow()]);
+    const [item] = await getFavoriteItems();
+
+    expect(item).toEqual({
+      id: "item_1",
+      title: "useAuth Hook",
+      description: "Custom authentication hook",
+      isFavorite: true,
+      isPinned: false,
+      createdAt: new Date("2024-01-15T00:00:00Z"),
+      updatedAt: new Date("2024-01-16T00:00:00Z"),
+      fileUrl: null,
+      fileName: null,
+      fileSize: null,
+      tags: ["react"],
+      type: {
+        id: "t_snippet",
+        name: "snippet",
+        label: "Snippet",
+        icon: "Code",
+        color: "#3b82f6",
+      },
+    });
   });
 });
 

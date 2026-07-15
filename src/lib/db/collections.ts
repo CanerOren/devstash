@@ -182,6 +182,29 @@ export async function getCollectionsPage(
   };
 }
 
+// A favorited collection row for the /favorites page. Extends the dashboard
+// collection view model with `updatedAt`, which stands in for "favorited at"
+// (no per-favorite timestamp): both the sort key and the row's displayed date.
+export interface FavoriteCollection extends DashboardCollection {
+  updatedAt: Date;
+}
+
+// The current user's favorited collections, most recently updated first.
+export async function getFavoriteCollections(): Promise<FavoriteCollection[]> {
+  const userId = await requireUserId();
+  const collections = await prisma.collection.findMany({
+    where: { userId, isFavorite: true },
+    orderBy: { updatedAt: "desc" },
+    take: 100,
+    include: dashboardCollectionInclude,
+  });
+
+  return collections.map((collection) => ({
+    ...buildDashboardCollection(collection),
+    updatedAt: collection.updatedAt,
+  }));
+}
+
 // All of the current user's collections for the sidebar (most recent first),
 // each with its item count and the color of its most-common item type.
 export async function getSidebarCollections(): Promise<SidebarCollection[]> {
