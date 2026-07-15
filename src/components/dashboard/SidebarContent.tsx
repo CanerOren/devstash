@@ -9,6 +9,7 @@ import {
   LogOut,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
   Star,
   User,
   X,
@@ -275,6 +276,12 @@ export function SidebarContent({
               <Link href="/profile" onClick={closeMobile}>
                 <User />
                 Profile
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings" onClick={closeMobile}>
+                <Settings />
+                Settings
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
