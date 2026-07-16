@@ -7,6 +7,8 @@ import { Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { GitHubIcon } from "@/components/auth/GitHubIcon";
+import { signInWithGitHub } from "@/actions/auth";
 
 export function RegisterForm() {
   const router = useRouter();
@@ -131,6 +133,27 @@ export function RegisterForm() {
         <Button type="submit" size="lg" className="w-full" disabled={pending}>
           {pending && <Loader2 className="animate-spin" />}
           Create account
+        </Button>
+      </form>
+
+      <div className="flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        <span className="text-xs text-muted-foreground">or</span>
+        <div className="h-px flex-1 bg-border" />
+      </div>
+
+      {/* Server-side GitHub sign-up: the Prisma adapter creates the account on
+          first login. NextAuth owns the redirect, so it's reliable first-click. */}
+      <form action={signInWithGitHub}>
+        <Button
+          type="submit"
+          variant="outline"
+          size="lg"
+          className="w-full"
+          disabled={pending}
+        >
+          <GitHubIcon />
+          Sign up with GitHub
         </Button>
       </form>
 
