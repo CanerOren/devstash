@@ -17,8 +17,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { ItemDetailResponse } from "@/components/items/item-detail-response";
 
-// The action bar. Favorite, Copy, Edit, and Delete are functional; Pin reflects
-// state but its mutation is deferred to a later feature (per the drawer spec).
+// The action bar. Favorite, Pin, Copy, Edit, and Delete are all functional.
 export function ItemActionBar({
   isFavorite,
   isPinned,
@@ -27,6 +26,8 @@ export function ItemActionBar({
   onDelete,
   onToggleFavorite,
   favoritePending,
+  onTogglePin,
+  pinPending,
   deleting,
   title,
 }: {
@@ -37,6 +38,8 @@ export function ItemActionBar({
   onDelete: () => void;
   onToggleFavorite: () => void;
   favoritePending: boolean;
+  onTogglePin: () => void;
+  pinPending: boolean;
   deleting: boolean;
   title: string;
 }) {
@@ -65,7 +68,14 @@ export function ItemActionBar({
         onClick={onToggleFavorite}
         disabled={favoritePending}
       />
-      <ActionButton icon={Pin} label="Pin" active={isPinned} />
+      <ActionButton
+        icon={Pin}
+        label={isPinned ? "Unpin" : "Pin"}
+        active={isPinned}
+        activeClassName="fill-foreground text-foreground"
+        onClick={onTogglePin}
+        disabled={pinPending}
+      />
       <ActionButton
         icon={copied ? Check : Copy}
         label={copied ? "Copied" : "Copy"}

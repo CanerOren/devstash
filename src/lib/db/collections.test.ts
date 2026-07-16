@@ -289,7 +289,7 @@ describe("getCollectionDetail query", () => {
     expect(itemCollectionFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { collectionId: "col_1" },
-        orderBy: { addedAt: "desc" },
+        orderBy: [{ item: { isPinned: "desc" } }, { addedAt: "desc" }],
         skip: expected.skip,
         take: ITEMS_PER_PAGE,
       }),

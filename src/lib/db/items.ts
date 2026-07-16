@@ -235,7 +235,8 @@ export async function getItemsByType(
 
   const items = await prisma.item.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    // Pinned items float to the top of the list, then most recent first.
+    orderBy: [{ isPinned: "desc" }, { createdAt: "desc" }],
     skip,
     take,
     include: itemInclude,
@@ -517,6 +518,29 @@ export async function setItemFavorite(
   await prisma.item.update({
     where: { id },
     data: { isFavorite },
+  });
+  return true;
+}
+
+// Sets one of the current user's items' pinned flag. Scoped to the session user
+// via an ownership check first (`update`'s where only takes the unique id), so
+// another user's id (or an unknown id) returns false. Returns true when the flag
+// was set. Mirrors setItemFavorite.
+export async function setItemPinned(
+  id: string,
+  isPinned: boolean,
+): Promise<boolean> {
+  const userId = await requireUserId();
+
+  const existing = await prisma.item.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!existing) return false;
+
+  await prisma.item.update({
+    where: { id },
+    data: { isPinned },
   });
   return true;
 }

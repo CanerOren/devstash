@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 import type { DashboardItem } from "@/lib/db/items";
 import type { CollectionOption } from "@/lib/db/collections";
-import { setItemFavorite } from "@/actions/items";
+import { setItemFavorite, setItemPin } from "@/actions/items";
 import {
   ItemDrawer,
   type ItemDetailResponse,
@@ -46,6 +46,7 @@ export function ItemDrawerProvider({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [favoritePending, setFavoritePending] = useState(false);
+  const [pinPending, setPinPending] = useState(false);
 
   // Tracks the latest opened item so a slow earlier fetch can't overwrite the
   // detail of an item the user opened afterwards.
@@ -139,6 +140,40 @@ export function ItemDrawerProvider({
     router.refresh();
   }, [detail, summary, favoritePending, router]);
 
+  // Toggles the open item's pinned flag. Same optimistic pattern as favorite:
+  // flip detail + summary, call the action, revert (and toast) on failure, then
+  // refresh so the underlying listings re-sort (pinned items float to the top).
+  const handleTogglePin = useCallback(async () => {
+    const id = detail?.id ?? summary?.id;
+    if (!id || pinPending) return;
+
+    const next = !(detail?.isPinned ?? summary?.isPinned ?? false);
+    setPinPending(true);
+    setDetail((prev) =>
+      prev && prev.id === id ? { ...prev, isPinned: next } : prev,
+    );
+    setSummary((prev) =>
+      prev && prev.id === id ? { ...prev, isPinned: next } : prev,
+    );
+
+    const result = await setItemPin(id, next);
+    setPinPending(false);
+
+    if (!result.success) {
+      // Revert the optimistic change.
+      setDetail((prev) =>
+        prev && prev.id === id ? { ...prev, isPinned: !next } : prev,
+      );
+      setSummary((prev) =>
+        prev && prev.id === id ? { ...prev, isPinned: !next } : prev,
+      );
+      toast.error(result.error ?? "Failed to update pin");
+      return;
+    }
+
+    router.refresh();
+  }, [detail, summary, pinPending, router]);
+
   return (
     <ItemDrawerContext.Provider value={{ openItem }}>
       {children}
@@ -153,6 +188,8 @@ export function ItemDrawerProvider({
         onDeleted={handleDeleted}
         onToggleFavorite={handleToggleFavorite}
         favoritePending={favoritePending}
+        onTogglePin={handleTogglePin}
+        pinPending={pinPending}
         collections={collections}
       />
     </ItemDrawerContext.Provider>

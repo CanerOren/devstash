@@ -62,6 +62,7 @@ import {
   updateItem,
   deleteItem,
   setItemFavorite,
+  setItemPinned,
   toCreatableTypes,
 } from "@/lib/db/items";
 import { getPagination, ITEMS_PER_PAGE } from "@/lib/pagination";
@@ -555,6 +556,44 @@ describe("setItemFavorite", () => {
     expect(itemUpdate).toHaveBeenCalledWith({
       where: { id: "item_1" },
       data: { isFavorite: false },
+    });
+  });
+});
+
+describe("setItemPinned", () => {
+  it("returns false without updating when the item isn't the user's", async () => {
+    findFirst.mockResolvedValue(null); // ownership check fails
+    expect(await setItemPinned("item_1", true)).toBe(false);
+    expect(itemUpdate).not.toHaveBeenCalled();
+  });
+
+  it("scopes the ownership check to the session user and the requested id", async () => {
+    findFirst.mockResolvedValue(null);
+    await setItemPinned("item_1", true);
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "item_1", userId: "user_1" } }),
+    );
+  });
+
+  it("updates the flag by id and returns true when the item is the user's", async () => {
+    findFirst.mockResolvedValue({ id: "item_1" });
+    itemUpdate.mockResolvedValue({ id: "item_1" });
+
+    expect(await setItemPinned("item_1", true)).toBe(true);
+    expect(itemUpdate).toHaveBeenCalledWith({
+      where: { id: "item_1" },
+      data: { isPinned: true },
+    });
+  });
+
+  it("passes a false flag through (unpin)", async () => {
+    findFirst.mockResolvedValue({ id: "item_1" });
+    itemUpdate.mockResolvedValue({ id: "item_1" });
+
+    await setItemPinned("item_1", false);
+    expect(itemUpdate).toHaveBeenCalledWith({
+      where: { id: "item_1" },
+      data: { isPinned: false },
     });
   });
 });

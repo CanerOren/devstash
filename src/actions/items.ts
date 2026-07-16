@@ -7,6 +7,7 @@ import {
   updateItem as updateItemQuery,
   deleteItem as deleteItemQuery,
   setItemFavorite as setItemFavoriteQuery,
+  setItemPinned as setItemPinnedQuery,
   type ItemDetail,
   type CreateItemData,
   type UpdateItemData,
@@ -279,6 +280,47 @@ export async function setItemFavorite(
     return { success: true };
   } catch (error) {
     console.error("[setItemFavorite] failed:", error);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+const setItemPinSchema = z.object({
+  itemId: z.string().trim().min(1, "Item id is required"),
+  isPinned: z.boolean(),
+});
+
+export interface SetItemPinResult {
+  success: boolean;
+  error?: string;
+}
+
+// Toggles an item's pinned flag. Validates the payload with Zod (the source of
+// truth), then delegates to the query layer, which enforces ownership. A false
+// result means the item isn't the user's (or doesn't exist) → "Item not found.".
+export async function setItemPin(
+  itemId: string,
+  isPinned: boolean,
+): Promise<SetItemPinResult> {
+  try {
+    const parsed = setItemPinSchema.safeParse({ itemId, isPinned });
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+      };
+    }
+
+    const updated = await setItemPinnedQuery(
+      parsed.data.itemId,
+      parsed.data.isPinned,
+    );
+    if (!updated) {
+      return { success: false, error: "Item not found." };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("[setItemPin] failed:", error);
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }
