@@ -8,11 +8,13 @@ const {
   updateItemQuery,
   deleteItemQuery,
   setItemFavoriteQuery,
+  setItemPinnedQuery,
 } = vi.hoisted(() => ({
   createItemQuery: vi.fn(),
   updateItemQuery: vi.fn(),
   deleteItemQuery: vi.fn(),
   setItemFavoriteQuery: vi.fn(),
+  setItemPinnedQuery: vi.fn(),
 }));
 
 vi.mock("@/lib/db/items", () => ({
@@ -20,6 +22,7 @@ vi.mock("@/lib/db/items", () => ({
   updateItem: updateItemQuery,
   deleteItem: deleteItemQuery,
   setItemFavorite: setItemFavoriteQuery,
+  setItemPinned: setItemPinnedQuery,
 }));
 
 import {
@@ -27,6 +30,7 @@ import {
   updateItem,
   deleteItem,
   setItemFavorite,
+  setItemPin,
 } from "@/actions/items";
 
 function input(overrides: Record<string, unknown> = {}) {
@@ -50,6 +54,7 @@ beforeEach(() => {
   updateItemQuery.mockResolvedValue(okDetail);
   deleteItemQuery.mockResolvedValue(true);
   setItemFavoriteQuery.mockResolvedValue(true);
+  setItemPinnedQuery.mockResolvedValue(true);
 });
 
 function createInput(overrides: Record<string, unknown> = {}) {
@@ -364,6 +369,39 @@ describe("setItemFavorite action", () => {
   it("returns a generic error when the query throws", async () => {
     setItemFavoriteQuery.mockRejectedValue(new Error("db down"));
     const result = await setItemFavorite("item_1", true);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Something went wrong. Please try again.");
+  });
+});
+
+describe("setItemPin action", () => {
+  it("rejects an empty / whitespace-only id without touching the DB", async () => {
+    const result = await setItemPin("   ", true);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Item id is required");
+    expect(setItemPinnedQuery).not.toHaveBeenCalled();
+  });
+
+  it("sets the flag with the trimmed id and returns success", async () => {
+    const result = await setItemPin("  item_1  ", true);
+    expect(setItemPinnedQuery).toHaveBeenCalledWith("item_1", true);
+    expect(result).toEqual({ success: true });
+  });
+
+  it("passes a false flag through (unpin)", async () => {
+    await setItemPin("item_1", false);
+    expect(setItemPinnedQuery).toHaveBeenCalledWith("item_1", false);
+  });
+
+  it("returns a not-found error when the query resolves false (not the user's item)", async () => {
+    setItemPinnedQuery.mockResolvedValue(false);
+    const result = await setItemPin("missing", true);
+    expect(result).toEqual({ success: false, error: "Item not found." });
+  });
+
+  it("returns a generic error when the query throws", async () => {
+    setItemPinnedQuery.mockRejectedValue(new Error("db down"));
+    const result = await setItemPin("item_1", true);
     expect(result.success).toBe(false);
     expect(result.error).toBe("Something went wrong. Please try again.");
   });

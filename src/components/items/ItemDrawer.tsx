@@ -48,6 +48,9 @@ interface ItemDrawerProps {
   // Toggles the item's favorite flag (optimistic; owned by the container).
   onToggleFavorite: () => void;
   favoritePending: boolean;
+  // Toggles the item's pinned flag (optimistic; owned by the container).
+  onTogglePin: () => void;
+  pinPending: boolean;
   // The user's collections, for the edit form's collection multi-select.
   collections: CollectionOption[];
 }
@@ -66,6 +69,8 @@ export function ItemDrawer({
   onDeleted,
   onToggleFavorite,
   favoritePending,
+  onTogglePin,
+  pinPending,
   collections,
 }: ItemDrawerProps) {
   const router = useRouter();
@@ -237,6 +242,8 @@ export function ItemDrawer({
               onDelete={handleDelete}
               onToggleFavorite={onToggleFavorite}
               favoritePending={favoritePending}
+              onTogglePin={onTogglePin}
+              pinPending={pinPending}
               deleting={deleting}
               title={title}
             />

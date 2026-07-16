@@ -441,7 +441,8 @@ export async function getCollectionDetail(
   const [joinRows, typeRows] = await Promise.all([
     prisma.itemCollection.findMany({
       where: { collectionId: id },
-      orderBy: { addedAt: "desc" },
+      // Pinned items float to the top, then most recently added first.
+      orderBy: [{ item: { isPinned: "desc" } }, { addedAt: "desc" }],
       skip,
       take,
       include: { item: { include: itemInclude } },
