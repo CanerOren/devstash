@@ -1,9 +1,12 @@
 "use client";
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 import type { DashboardItem } from "@/lib/db/items";
 import type { CollectionOption } from "@/lib/db/collections";
+import { setItemFavorite } from "@/actions/items";
 import {
   ItemDrawer,
   type ItemDetailResponse,
@@ -36,11 +39,13 @@ export function ItemDrawerProvider({
   // The user's collections, threaded down to the drawer's edit form.
   collections: CollectionOption[];
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [summary, setSummary] = useState<DashboardItem | null>(null);
   const [detail, setDetail] = useState<ItemDetailResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [favoritePending, setFavoritePending] = useState(false);
 
   // Tracks the latest opened item so a slow earlier fetch can't overwrite the
   // detail of an item the user opened afterwards.
@@ -100,6 +105,40 @@ export function ItemDrawerProvider({
     setOpen(false);
   }, []);
 
+  // Toggles the open item's favorite flag. Updates both detail + summary
+  // optimistically, calls the action, reverts (and toasts) on failure, then
+  // refreshes so the underlying card lists reflect the new state.
+  const handleToggleFavorite = useCallback(async () => {
+    const id = detail?.id ?? summary?.id;
+    if (!id || favoritePending) return;
+
+    const next = !(detail?.isFavorite ?? summary?.isFavorite ?? false);
+    setFavoritePending(true);
+    setDetail((prev) =>
+      prev && prev.id === id ? { ...prev, isFavorite: next } : prev,
+    );
+    setSummary((prev) =>
+      prev && prev.id === id ? { ...prev, isFavorite: next } : prev,
+    );
+
+    const result = await setItemFavorite(id, next);
+    setFavoritePending(false);
+
+    if (!result.success) {
+      // Revert the optimistic change.
+      setDetail((prev) =>
+        prev && prev.id === id ? { ...prev, isFavorite: !next } : prev,
+      );
+      setSummary((prev) =>
+        prev && prev.id === id ? { ...prev, isFavorite: !next } : prev,
+      );
+      toast.error(result.error ?? "Failed to update favorite");
+      return;
+    }
+
+    router.refresh();
+  }, [detail, summary, favoritePending, router]);
+
   return (
     <ItemDrawerContext.Provider value={{ openItem }}>
       {children}
@@ -112,6 +151,8 @@ export function ItemDrawerProvider({
         error={error}
         onUpdated={handleUpdated}
         onDeleted={handleDeleted}
+        onToggleFavorite={handleToggleFavorite}
+        favoritePending={favoritePending}
         collections={collections}
       />
     </ItemDrawerContext.Provider>

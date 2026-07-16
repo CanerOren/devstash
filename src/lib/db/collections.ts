@@ -344,6 +344,29 @@ export async function deleteCollection(id: string): Promise<boolean> {
   return true;
 }
 
+// Sets one of the current user's collections' favorite flag. Scoped to the
+// session user via an ownership check first (`update`'s where only takes the
+// unique id), so another user's id (or an unknown id) returns false. Returns
+// true when the flag was set.
+export async function setCollectionFavorite(
+  id: string,
+  isFavorite: boolean,
+): Promise<boolean> {
+  const userId = await requireUserId();
+
+  const existing = await prisma.collection.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!existing) return false;
+
+  await prisma.collection.update({
+    where: { id },
+    data: { isFavorite },
+  });
+  return true;
+}
+
 // All of the current user's collections as lightweight { id, name } options for
 // the item forms' collection multi-select (alphabetical). Kept separate from the
 // sidebar/dashboard fetchers, which carry heavy nested item/type data the

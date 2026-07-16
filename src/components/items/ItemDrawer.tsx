@@ -45,6 +45,9 @@ interface ItemDrawerProps {
   onUpdated: (detail: ItemDetailResponse) => void;
   // Called after a successful delete so the container can close the drawer.
   onDeleted: () => void;
+  // Toggles the item's favorite flag (optimistic; owned by the container).
+  onToggleFavorite: () => void;
+  favoritePending: boolean;
   // The user's collections, for the edit form's collection multi-select.
   collections: CollectionOption[];
 }
@@ -61,6 +64,8 @@ export function ItemDrawer({
   error,
   onUpdated,
   onDeleted,
+  onToggleFavorite,
+  favoritePending,
   collections,
 }: ItemDrawerProps) {
   const router = useRouter();
@@ -230,6 +235,8 @@ export function ItemDrawer({
               detail={detail}
               onEdit={startEditing}
               onDelete={handleDelete}
+              onToggleFavorite={onToggleFavorite}
+              favoritePending={favoritePending}
               deleting={deleting}
               title={title}
             />

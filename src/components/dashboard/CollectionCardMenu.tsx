@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { MoreHorizontal, Pencil, Star, Trash2 } from "lucide-react";
 
 import {
@@ -9,13 +11,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { setCollectionFavorite } from "@/actions/collections";
 import { EditCollectionDialog } from "@/components/items/EditCollectionDialog";
 import { DeleteCollectionDialog } from "@/components/items/DeleteCollectionDialog";
 
 // The ⋯ menu for a collection card. Sits as a sibling on top of the card's
 // full-card navigation overlay, so opening the menu (or picking an action)
-// doesn't also navigate to the collection. Edit/Delete are functional; Favorite
-// is a placeholder button with no behavior yet (per the feature spec).
+// doesn't also navigate to the collection. All three actions are functional;
+// Favorite toggles optimistically (reverting on failure).
 export function CollectionCardMenu({
   collection,
 }: {
@@ -26,8 +29,29 @@ export function CollectionCardMenu({
     isFavorite: boolean;
   };
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(collection.isFavorite);
+  const [favoritePending, setFavoritePending] = useState(false);
+
+  async function toggleFavorite() {
+    if (favoritePending) return;
+    const next = !isFavorite;
+    setFavoritePending(true);
+    setIsFavorite(next); // optimistic
+
+    const result = await setCollectionFavorite(collection.id, next);
+    setFavoritePending(false);
+
+    if (!result.success) {
+      setIsFavorite(!next); // revert
+      toast.error(result.error ?? "Failed to update favorite");
+      return;
+    }
+
+    router.refresh();
+  }
 
   return (
     <div className="relative z-10 shrink-0">
@@ -48,19 +72,22 @@ export function CollectionCardMenu({
             <Pencil className="size-4" />
             Edit
           </DropdownMenuItem>
-          {/* Favorite toggle is a placeholder for now — no behavior yet. */}
           <DropdownMenuItem
-            onSelect={(e) => e.preventDefault()}
-            className="text-muted-foreground"
+            disabled={favoritePending}
+            onSelect={(e) => {
+              // Keep the menu open across the toggle.
+              e.preventDefault();
+              toggleFavorite();
+            }}
           >
             <Star
               className={
-                collection.isFavorite
+                isFavorite
                   ? "size-4 fill-amber-400 text-amber-400"
                   : "size-4"
               }
             />
-            Favorite
+            {isFavorite ? "Unfavorite" : "Favorite"}
           </DropdownMenuItem>
           <DropdownMenuItem
             variant="destructive"

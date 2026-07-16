@@ -3,23 +3,30 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // The actions delegate persistence to lib/db/collections (which pulls in prisma
 // + auth). Mock the query layer so these tests exercise only the actions' Zod
 // validation / normalization, with no DB or session.
-const { createCollectionQuery, updateCollectionQuery, deleteCollectionQuery } =
-  vi.hoisted(() => ({
-    createCollectionQuery: vi.fn(),
-    updateCollectionQuery: vi.fn(),
-    deleteCollectionQuery: vi.fn(),
-  }));
+const {
+  createCollectionQuery,
+  updateCollectionQuery,
+  deleteCollectionQuery,
+  setCollectionFavoriteQuery,
+} = vi.hoisted(() => ({
+  createCollectionQuery: vi.fn(),
+  updateCollectionQuery: vi.fn(),
+  deleteCollectionQuery: vi.fn(),
+  setCollectionFavoriteQuery: vi.fn(),
+}));
 
 vi.mock("@/lib/db/collections", () => ({
   createCollection: createCollectionQuery,
   updateCollection: updateCollectionQuery,
   deleteCollection: deleteCollectionQuery,
+  setCollectionFavorite: setCollectionFavoriteQuery,
 }));
 
 import {
   createCollection,
   updateCollection,
   deleteCollection,
+  setCollectionFavorite,
 } from "@/actions/collections";
 
 // The query's resolved value is passed straight back as `data`.
@@ -30,6 +37,7 @@ beforeEach(() => {
   createCollectionQuery.mockResolvedValue(okCollection);
   updateCollectionQuery.mockResolvedValue(okCollection);
   deleteCollectionQuery.mockResolvedValue(true);
+  setCollectionFavoriteQuery.mockResolvedValue(true);
 });
 
 function input(overrides: Record<string, unknown> = {}) {
@@ -177,6 +185,47 @@ describe("deleteCollection action", () => {
     deleteCollectionQuery.mockRejectedValueOnce(new Error("db down"));
 
     const result = await deleteCollection("col_1");
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Something went wrong. Please try again.");
+  });
+});
+
+describe("setCollectionFavorite action", () => {
+  it("rejects an empty / whitespace-only id without touching the DB", async () => {
+    const result = await setCollectionFavorite("   ", true);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Collection id is required");
+    expect(setCollectionFavoriteQuery).not.toHaveBeenCalled();
+  });
+
+  it("sets the flag with the trimmed id and returns success", async () => {
+    const result = await setCollectionFavorite("  col_1  ", true);
+
+    expect(setCollectionFavoriteQuery).toHaveBeenCalledWith("col_1", true);
+    expect(result).toEqual({ success: true });
+  });
+
+  it("passes a false flag through (unfavorite)", async () => {
+    await setCollectionFavorite("col_1", false);
+
+    expect(setCollectionFavoriteQuery).toHaveBeenCalledWith("col_1", false);
+  });
+
+  it("returns not-found when the query resolves false", async () => {
+    setCollectionFavoriteQuery.mockResolvedValueOnce(false);
+
+    const result = await setCollectionFavorite("col_x", true);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Collection not found.");
+  });
+
+  it("returns a generic error when the query throws", async () => {
+    setCollectionFavoriteQuery.mockRejectedValueOnce(new Error("db down"));
+
+    const result = await setCollectionFavorite("col_1", true);
 
     expect(result.success).toBe(false);
     expect(result.error).toBe("Something went wrong. Please try again.");

@@ -3,19 +3,31 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // The action delegates persistence to lib/db/items' updateItem (which pulls in
 // prisma + auth). Mock it so these tests exercise only the action's Zod
 // validation / normalization, with no DB or session.
-const { createItemQuery, updateItemQuery, deleteItemQuery } = vi.hoisted(() => ({
+const {
+  createItemQuery,
+  updateItemQuery,
+  deleteItemQuery,
+  setItemFavoriteQuery,
+} = vi.hoisted(() => ({
   createItemQuery: vi.fn(),
   updateItemQuery: vi.fn(),
   deleteItemQuery: vi.fn(),
+  setItemFavoriteQuery: vi.fn(),
 }));
 
 vi.mock("@/lib/db/items", () => ({
   createItem: createItemQuery,
   updateItem: updateItemQuery,
   deleteItem: deleteItemQuery,
+  setItemFavorite: setItemFavoriteQuery,
 }));
 
-import { createItem, updateItem, deleteItem } from "@/actions/items";
+import {
+  createItem,
+  updateItem,
+  deleteItem,
+  setItemFavorite,
+} from "@/actions/items";
 
 function input(overrides: Record<string, unknown> = {}) {
   return {
@@ -37,6 +49,7 @@ beforeEach(() => {
   createItemQuery.mockResolvedValue(okDetail);
   updateItemQuery.mockResolvedValue(okDetail);
   deleteItemQuery.mockResolvedValue(true);
+  setItemFavoriteQuery.mockResolvedValue(true);
 });
 
 function createInput(overrides: Record<string, unknown> = {}) {
@@ -318,6 +331,39 @@ describe("deleteItem action", () => {
   it("returns a generic error when the query throws", async () => {
     deleteItemQuery.mockRejectedValue(new Error("db down"));
     const result = await deleteItem("item_1");
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Something went wrong. Please try again.");
+  });
+});
+
+describe("setItemFavorite action", () => {
+  it("rejects an empty / whitespace-only id without touching the DB", async () => {
+    const result = await setItemFavorite("   ", true);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe("Item id is required");
+    expect(setItemFavoriteQuery).not.toHaveBeenCalled();
+  });
+
+  it("sets the flag with the trimmed id and returns success", async () => {
+    const result = await setItemFavorite("  item_1  ", true);
+    expect(setItemFavoriteQuery).toHaveBeenCalledWith("item_1", true);
+    expect(result).toEqual({ success: true });
+  });
+
+  it("passes a false flag through (unfavorite)", async () => {
+    await setItemFavorite("item_1", false);
+    expect(setItemFavoriteQuery).toHaveBeenCalledWith("item_1", false);
+  });
+
+  it("returns a not-found error when the query resolves false (not the user's item)", async () => {
+    setItemFavoriteQuery.mockResolvedValue(false);
+    const result = await setItemFavorite("missing", true);
+    expect(result).toEqual({ success: false, error: "Item not found." });
+  });
+
+  it("returns a generic error when the query throws", async () => {
+    setItemFavoriteQuery.mockRejectedValue(new Error("db down"));
+    const result = await setItemFavorite("item_1", true);
     expect(result.success).toBe(false);
     expect(result.error).toBe("Something went wrong. Please try again.");
   });

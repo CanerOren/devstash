@@ -56,6 +56,7 @@ import {
   createCollection,
   updateCollection,
   deleteCollection,
+  setCollectionFavorite,
   getCollectionDetail,
   getCollectionOptions,
   getCollectionsPage,
@@ -528,5 +529,42 @@ describe("deleteCollection query", () => {
 
     expect(collectionDelete).toHaveBeenCalledWith({ where: { id: "col_1" } });
     expect(result).toBe(true);
+  });
+});
+
+describe("setCollectionFavorite query", () => {
+  it("returns false and does not update when the id isn't the user's", async () => {
+    collectionFindFirst.mockResolvedValue(null);
+
+    const result = await setCollectionFavorite("col_x", true);
+
+    expect(result).toBe(false);
+    expect(collectionFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "col_x", userId: "user_1" } }),
+    );
+    expect(collectionUpdate).not.toHaveBeenCalled();
+  });
+
+  it("updates the flag by id and returns true for an owned collection", async () => {
+    collectionFindFirst.mockResolvedValue({ id: "col_1" });
+
+    const result = await setCollectionFavorite("col_1", true);
+
+    expect(collectionUpdate).toHaveBeenCalledWith({
+      where: { id: "col_1" },
+      data: { isFavorite: true },
+    });
+    expect(result).toBe(true);
+  });
+
+  it("passes a false flag through (unfavorite)", async () => {
+    collectionFindFirst.mockResolvedValue({ id: "col_1" });
+
+    await setCollectionFavorite("col_1", false);
+
+    expect(collectionUpdate).toHaveBeenCalledWith({
+      where: { id: "col_1" },
+      data: { isFavorite: false },
+    });
   });
 });

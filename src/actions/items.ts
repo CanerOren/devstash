@@ -6,6 +6,7 @@ import {
   createItem as createItemQuery,
   updateItem as updateItemQuery,
   deleteItem as deleteItemQuery,
+  setItemFavorite as setItemFavoriteQuery,
   type ItemDetail,
   type CreateItemData,
   type UpdateItemData,
@@ -237,6 +238,47 @@ export async function deleteItem(itemId: string): Promise<DeleteItemResult> {
     return { success: true };
   } catch (error) {
     console.error("[deleteItem] failed:", error);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+const setItemFavoriteSchema = z.object({
+  itemId: z.string().trim().min(1, "Item id is required"),
+  isFavorite: z.boolean(),
+});
+
+export interface SetItemFavoriteResult {
+  success: boolean;
+  error?: string;
+}
+
+// Toggles an item's favorite flag. Validates the payload with Zod (the source of
+// truth), then delegates to the query layer, which enforces ownership. A false
+// result means the item isn't the user's (or doesn't exist) → "Item not found.".
+export async function setItemFavorite(
+  itemId: string,
+  isFavorite: boolean,
+): Promise<SetItemFavoriteResult> {
+  try {
+    const parsed = setItemFavoriteSchema.safeParse({ itemId, isFavorite });
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+      };
+    }
+
+    const updated = await setItemFavoriteQuery(
+      parsed.data.itemId,
+      parsed.data.isFavorite,
+    );
+    if (!updated) {
+      return { success: false, error: "Item not found." };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("[setItemFavorite] failed:", error);
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }

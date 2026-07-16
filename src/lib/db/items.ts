@@ -498,6 +498,29 @@ export async function deleteItem(id: string): Promise<boolean> {
   return true;
 }
 
+// Sets one of the current user's items' favorite flag. Scoped to the session
+// user via an ownership check first (`update`'s where only takes the unique id),
+// so another user's id (or an unknown id) returns false. Returns true when the
+// flag was set.
+export async function setItemFavorite(
+  id: string,
+  isFavorite: boolean,
+): Promise<boolean> {
+  const userId = await requireUserId();
+
+  const existing = await prisma.item.findFirst({
+    where: { id, userId },
+    select: { id: true },
+  });
+  if (!existing) return false;
+
+  await prisma.item.update({
+    where: { id },
+    data: { isFavorite },
+  });
+  return true;
+}
+
 // Aggregate item counts for the dashboard stat cards.
 export async function getItemStats(): Promise<ItemStats> {
   const userId = await requireUserId();
