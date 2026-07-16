@@ -2,8 +2,8 @@ import { Star } from "lucide-react";
 
 import { getFavoriteItems } from "@/lib/db/items";
 import { getFavoriteCollections } from "@/lib/db/collections";
-import { FavoriteItemRow } from "@/components/favorites/FavoriteItemRow";
-import { FavoriteCollectionRow } from "@/components/favorites/FavoriteCollectionRow";
+import { FavoriteItemsSection } from "@/components/favorites/FavoriteItemsSection";
+import { FavoriteCollectionsSection } from "@/components/favorites/FavoriteCollectionsSection";
 
 // Reads live per-user data, so render on each request rather than prerendering.
 export const dynamic = "force-dynamic";
@@ -41,33 +41,10 @@ export default async function FavoritesPage() {
         </div>
       ) : (
         <div className="space-y-8">
-          {items.length > 0 && (
-            <section>
-              <h2 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Items · {items.length}
-              </h2>
-              <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-                {items.map((item) => (
-                  <FavoriteItemRow key={item.id} item={item} />
-                ))}
-              </div>
-            </section>
-          )}
+          {items.length > 0 && <FavoriteItemsSection items={items} />}
 
           {collections.length > 0 && (
-            <section>
-              <h2 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Collections · {collections.length}
-              </h2>
-              <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-                {collections.map((collection) => (
-                  <FavoriteCollectionRow
-                    key={collection.id}
-                    collection={collection}
-                  />
-                ))}
-              </div>
-            </section>
+            <FavoriteCollectionsSection collections={collections} />
           )}
         </div>
       )}
