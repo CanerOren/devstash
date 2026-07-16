@@ -6,6 +6,7 @@ import {
   createCollection as createCollectionQuery,
   updateCollection as updateCollectionQuery,
   deleteCollection as deleteCollectionQuery,
+  setCollectionFavorite as setCollectionFavoriteQuery,
   type CreateCollectionData,
   type UpdateCollectionData,
   type DashboardCollection,
@@ -144,6 +145,51 @@ export async function deleteCollection(
     return { success: true };
   } catch (error) {
     console.error("[deleteCollection] failed:", error);
+    return { success: false, error: "Something went wrong. Please try again." };
+  }
+}
+
+const setCollectionFavoriteSchema = z.object({
+  collectionId: z.string().trim().min(1, "Collection id is required"),
+  isFavorite: z.boolean(),
+});
+
+export interface SetCollectionFavoriteResult {
+  success: boolean;
+  error?: string;
+}
+
+// Toggles a collection's favorite flag. Validates the payload with Zod (the
+// source of truth), then delegates to the query layer, which enforces ownership.
+// A false result means the id isn't the user's (or doesn't exist) →
+// "Collection not found.".
+export async function setCollectionFavorite(
+  collectionId: string,
+  isFavorite: boolean,
+): Promise<SetCollectionFavoriteResult> {
+  try {
+    const parsed = setCollectionFavoriteSchema.safeParse({
+      collectionId,
+      isFavorite,
+    });
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+      };
+    }
+
+    const updated = await setCollectionFavoriteQuery(
+      parsed.data.collectionId,
+      parsed.data.isFavorite,
+    );
+    if (!updated) {
+      return { success: false, error: "Collection not found." };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("[setCollectionFavorite] failed:", error);
     return { success: false, error: "Something went wrong. Please try again." };
   }
 }

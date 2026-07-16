@@ -17,14 +17,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import type { ItemDetailResponse } from "@/components/items/item-detail-response";
 
-// The action bar. Copy, Edit, and Delete are functional; favorite/pin reflect
-// state but their mutations are deferred to a later feature (per the drawer spec).
+// The action bar. Favorite, Copy, Edit, and Delete are functional; Pin reflects
+// state but its mutation is deferred to a later feature (per the drawer spec).
 export function ItemActionBar({
   isFavorite,
   isPinned,
   detail,
   onEdit,
   onDelete,
+  onToggleFavorite,
+  favoritePending,
   deleting,
   title,
 }: {
@@ -33,6 +35,8 @@ export function ItemActionBar({
   detail: ItemDetailResponse | null;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleFavorite: () => void;
+  favoritePending: boolean;
   deleting: boolean;
   title: string;
 }) {
@@ -55,9 +59,11 @@ export function ItemActionBar({
     <div className="flex items-center gap-1">
       <ActionButton
         icon={Star}
-        label="Favorite"
+        label={isFavorite ? "Unfavorite" : "Favorite"}
         active={isFavorite}
         activeClassName="fill-amber-400 text-amber-400"
+        onClick={onToggleFavorite}
+        disabled={favoritePending}
       />
       <ActionButton icon={Pin} label="Pin" active={isPinned} />
       <ActionButton

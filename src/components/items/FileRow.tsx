@@ -8,6 +8,7 @@ import {
   FileJson,
   FileSpreadsheet,
   FileText,
+  Star,
   type LucideIcon,
 } from "lucide-react";
 
@@ -80,7 +81,12 @@ export function FileRow({ item }: { item: DashboardItem }) {
         {/* Info: stacks vertically on mobile, spreads into columns on sm+. */}
         <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-4">
           <span className="flex min-w-0 flex-col sm:flex-1">
-            <span className="truncate text-sm font-medium">{item.title}</span>
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-sm font-medium">{item.title}</span>
+              {item.isFavorite && (
+                <Star className="size-3 shrink-0 fill-amber-400 text-amber-400" />
+              )}
+            </span>
             {item.fileName && (
               <span className="truncate text-xs text-muted-foreground">
                 {item.fileName}
