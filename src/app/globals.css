@@ -48,6 +48,31 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* Marketing / landing-page palette. Item-type accents (per spec) + the dark
+   surface scale the homepage prototype is built on. Exposed as Tailwind color
+   tokens so utilities like `bg-snippet`, `text-mk-muted`, `border-mk-border`
+   work. Only the marketing page uses these; the app shell keeps the shadcn
+   tokens above. */
+@theme {
+    --color-snippet: #3b82f6;
+    --color-prompt: #f59e0b;
+    --color-command: #06b6d4;
+    --color-note: #22c55e;
+    --color-file: #64748b;
+    --color-image: #ec4899;
+    --color-url: #6366f1;
+
+    --color-mk-bg: #0a0a0b;
+    --color-mk-elevated: #121215;
+    --color-mk-surface: #17171b;
+    --color-mk-surface-2: #1e1e24;
+    --color-mk-border: #2a2a31;
+    --color-mk-border-strong: #3a3a44;
+    --color-mk-text: #ededf0;
+    --color-mk-muted: #9a9aa7;
+    --color-mk-dim: #6b6b78;
+}
+
 :root {
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
@@ -332,4 +357,152 @@
 .markdown-preview strong {
     font-weight: 600;
     color: #fafafa;
+}
+
+/* ─── Marketing homepage (public landing page at /) ─────────────────────────
+   Keyframes and selectors that are awkward to express as Tailwind utilities.
+   Everything else lives in the marketing components as utilities. Scoped to
+   `.mk-page` so none of it leaks into the authenticated app shell. */
+
+/* Ambient gradient glow behind the hero. */
+.mk-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+        radial-gradient(60% 50% at 15% 0%, rgba(59, 130, 246, 0.12), transparent 70%),
+        radial-gradient(50% 50% at 90% 10%, rgba(99, 102, 241, 0.12), transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+/* Smooth in-page anchor scrolling only while the marketing page is mounted. */
+html:has(.mk-page) {
+    scroll-behavior: smooth;
+}
+
+/* Gradient headline text. */
+.mk-gradient-text {
+    background: linear-gradient(120deg, #93c5fd, #3b82f6 55%, #2563eb);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* Subtle grid overlay inside the chaos field. */
+.mk-chaos-grid::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(#2a2a31 1px, transparent 1px),
+        linear-gradient(90deg, #2a2a31 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.25;
+    pointer-events: none;
+}
+
+/* Full-bleed lighter band behind the Features section for separation. */
+.mk-band {
+    position: relative;
+}
+.mk-band::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 50%;
+    width: 100vw;
+    transform: translateX(-50%);
+    background: #121215;
+    border-top: 1px solid #2a2a31;
+    border-bottom: 1px solid #2a2a31;
+    z-index: -1;
+}
+
+/* Pulsing transform arrow. */
+.mk-arrow {
+    animation: mk-arrow-pulse 2s ease-in-out infinite;
+}
+@keyframes mk-arrow-pulse {
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5);
+    }
+    50% {
+        transform: scale(1.08);
+        box-shadow: 0 0 0 16px rgba(99, 102, 241, 0);
+    }
+}
+
+/* Scroll-reveal fade-up (driven by the Reveal client component adding .mk-in). */
+.mk-reveal {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.mk-reveal.mk-in {
+    opacity: 1;
+    transform: none;
+}
+
+/* AI "Generated Tags" staggered reveal — runs once the demo scrolls into view
+   (its wrapping Reveal gains .mk-in). */
+.mk-tag {
+    opacity: 0;
+    transform: translateY(6px);
+}
+.mk-in .mk-tag {
+    animation: mk-tag-in 0.4s ease forwards;
+}
+.mk-in .mk-tag:nth-child(1) {
+    animation-delay: 0.1s;
+}
+.mk-in .mk-tag:nth-child(2) {
+    animation-delay: 0.25s;
+}
+.mk-in .mk-tag:nth-child(3) {
+    animation-delay: 0.4s;
+}
+.mk-in .mk-tag:nth-child(4) {
+    animation-delay: 0.55s;
+}
+@keyframes mk-tag-in {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile: the transform arrow points down. */
+@media (max-width: 767px) {
+    .mk-arrow {
+        animation-name: mk-arrow-pulse-rot;
+    }
+    @keyframes mk-arrow-pulse-rot {
+        0%,
+        100% {
+            transform: rotate(90deg) scale(1);
+            box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5);
+        }
+        50% {
+            transform: rotate(90deg) scale(1.08);
+            box-shadow: 0 0 0 16px rgba(99, 102, 241, 0);
+        }
+    }
+}
+
+/* Respect reduced motion: no pulses/animations, reveals shown immediately. */
+@media (prefers-reduced-motion: reduce) {
+    .mk-arrow {
+        animation: none !important;
+    }
+    .mk-reveal {
+        opacity: 1 !important;
+        transform: none !important;
+    }
+    .mk-tag {
+        opacity: 1 !important;
+        transform: none !important;
+        animation: none !important;
+    }
 }
