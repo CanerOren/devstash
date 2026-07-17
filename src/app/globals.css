@@ -70,7 +70,7 @@
     --color-mk-border-strong: #3a3a44;
     --color-mk-text: #ededf0;
     --color-mk-muted: #9a9aa7;
-    --color-mk-dim: #6b6b78;
+    --color-mk-dim: #8a8a99; /* ~5.5:1 on mk-elevated — clears WCAG AA (4.5:1) */
 }
 
 :root {

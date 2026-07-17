@@ -185,28 +185,22 @@ export interface FooterColumn {
   links: NavLink[];
 }
 
+// Only real destinations are listed. Placeholder sections (Company, Legal,
+// Changelog) were removed rather than shipped as dead `href="#"` links — add
+// them back here once those pages exist.
 export const FOOTER_COLUMNS: FooterColumn[] = [
   {
     title: "Product",
     links: [
       { label: "Features", href: "#features" },
       { label: "Pricing", href: "#pricing" },
-      { label: "Changelog", href: "#" },
     ],
   },
   {
-    title: "Company",
+    title: "Account",
     links: [
-      { label: "About", href: "#" },
-      { label: "Blog", href: "#" },
-      { label: "Contact", href: "#" },
-    ],
-  },
-  {
-    title: "Legal",
-    links: [
-      { label: "Privacy", href: "#" },
-      { label: "Terms", href: "#" },
+      { label: "Sign In", href: "/sign-in" },
+      { label: "Get Started", href: "/register" },
     ],
   },
 ];
