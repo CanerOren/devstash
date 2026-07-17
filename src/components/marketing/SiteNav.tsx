@@ -8,9 +8,9 @@ import { MarketingButton } from "./MarketingButton";
 import { NAV_LINKS } from "./data";
 
 // Fixed top nav, shared by the marketing homepage and the auth pages. Grows
-// opaque + blurred once the page is scrolled. Nav links hide on mobile; the
-// ghost "Sign In" hides on the smallest screens. Whichever CTA points at the
-// current page is dropped, so /sign-in never offers a "Sign In" button.
+// opaque + blurred once the page is scrolled. Nav links hide on mobile, which
+// leaves room for both CTAs at every width. Whichever CTA points at the current
+// page is dropped, so /sign-in never offers a "Sign In" button.
 export function SiteNav() {
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
@@ -32,7 +32,10 @@ export function SiteNav() {
       )}
     >
       <div className="mx-auto flex h-full max-w-[1180px] items-center gap-6 px-6">
-        <Brand />
+        {/* Wordmark + both CTAs need ~403px of row incl. the px-6 gutters. Below
+            that the wordmark gives way rather than the buttons clipping or
+            crowding the edge — the DS mark still carries the link. */}
+        <Brand wordmarkClassName="max-[420px]:hidden" />
         <nav aria-label="Primary" className="ml-4 hidden gap-6 md:flex">
           {NAV_LINKS.map((link) => (
             <a
@@ -46,11 +49,7 @@ export function SiteNav() {
         </nav>
         <div className="ml-auto flex items-center gap-2.5">
           {pathname !== "/sign-in" && (
-            <MarketingButton
-              href="/sign-in"
-              variant="ghost"
-              className="max-[560px]:hidden"
-            >
+            <MarketingButton href="/sign-in" variant="ghost">
               Sign In
             </MarketingButton>
           )}
