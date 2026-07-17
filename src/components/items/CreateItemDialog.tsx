@@ -55,6 +55,9 @@ interface CreateItemDialogProps {
   defaultType?: string;
   // Label for the trigger button (e.g. "New Snippet"). Defaults to "New Item".
   triggerLabel?: string;
+  // Drops the trigger label below `sm` (icon only) for callers whose row is too
+  // tight for it on mobile — the top bar.
+  compact?: boolean;
 }
 
 // The "New Item" button + its create modal. Opened from the top bar (and the
@@ -66,6 +69,7 @@ export function CreateItemDialog({
   collections,
   defaultType,
   triggerLabel = "New Item",
+  compact = false,
 }: CreateItemDialogProps) {
   const router = useRouter();
   // The preselected type, if it's actually creatable; else the first one.
@@ -157,9 +161,11 @@ export function CreateItemDialog({
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="sm">
+        <Button size="sm" aria-label={compact ? triggerLabel : undefined}>
           <Plus />
-          {triggerLabel}
+          <span className={compact ? "hidden sm:inline" : undefined}>
+            {triggerLabel}
+          </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
