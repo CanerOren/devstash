@@ -13,7 +13,7 @@ export function SiteFooter() {
             One fast, searchable, AI-enhanced hub for all your dev knowledge.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-6">
+        <div className="flex flex-wrap gap-x-16 gap-y-8">
           {FOOTER_COLUMNS.map((col) => (
             <div key={col.title} className="flex flex-col gap-2.5">
               <h4 className="mb-1 text-[0.8rem] font-bold uppercase tracking-[0.06em] text-mk-dim">

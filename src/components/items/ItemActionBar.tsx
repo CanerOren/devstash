@@ -59,7 +59,7 @@ export function ItemActionBar({
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex flex-wrap items-center gap-1">
       <ActionButton
         icon={Star}
         label={isFavorite ? "Unfavorite" : "Favorite"}
@@ -167,7 +167,7 @@ function ActionButton({
       {createElement(icon, {
         className: cn("size-4", active && activeClassName),
       })}
-      {!hideLabel && <span>{label}</span>}
+      {!hideLabel && <span className="max-sm:hidden">{label}</span>}
     </button>
   );
 }
