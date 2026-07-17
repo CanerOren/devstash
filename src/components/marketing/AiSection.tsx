@@ -54,7 +54,10 @@ export function AiSection() {
           </ul>
         </Reveal>
 
-        <Reveal>
+        {/* min-w-0: grid items default to min-width:auto, which would let the
+            long code lines widen the column past the viewport instead of
+            letting the <pre> scroll. */}
+        <Reveal className="min-w-0">
           <div className="overflow-hidden rounded-[14px] border border-mk-border bg-[#0d0d10] shadow-[0_30px_60px_-30px_rgba(0,0,0,0.9)]">
             <div className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-4 py-3">
               <span className="size-3 rounded-full bg-[#ff5f57]" />
