@@ -48,20 +48,24 @@ export function TopBar({
       </Button>
       <Link
         href="/dashboard"
-        className="flex items-center gap-2 rounded-md transition-opacity hover:opacity-80"
+        className="flex shrink-0 items-center gap-2 rounded-md transition-opacity hover:opacity-80"
         aria-label="Go to dashboard"
       >
         <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-white text-sm font-bold text-black">
           DS
         </span>
-        <span className="text-base font-semibold tracking-tight">DevStash</span>
+        {/* The wordmark is the first thing to go on mobile — the DS mark still
+            carries the link. */}
+        <span className="hidden text-base font-semibold tracking-tight sm:inline">
+          DevStash
+        </span>
       </Link>
 
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Search items and collections"
-        className="mx-auto flex h-9 w-full max-w-md items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent/50"
+        className="mx-auto flex h-9 w-full min-w-0 max-w-md items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground transition-colors hover:bg-accent/50"
       >
         <Search className="size-4 shrink-0" />
         <span className="truncate">Search items and collections...</span>
@@ -73,14 +77,14 @@ export function TopBar({
         </kbd>
       </button>
 
-      <div className="ml-auto flex items-center gap-2">
+      <div className="ml-auto flex shrink-0 items-center gap-2">
         <Button variant="ghost" size="icon" asChild aria-label="Favorites">
           <Link href="/favorites">
             <Star />
           </Link>
         </Button>
-        <CreateCollectionDialog />
-        <CreateItemDialog types={createTypes} collections={collections} />
+        <CreateCollectionDialog compact />
+        <CreateItemDialog types={createTypes} collections={collections} compact />
       </div>
     </header>
   );

@@ -30,7 +30,13 @@ const BLANK_FORM: CollectionForm = { name: "", description: "" };
 // The "New Collection" button + its create modal. Opened from the top bar. On
 // success it toasts, closes, and refreshes the page so the new collection
 // appears in the dashboard grid + sidebar.
-export function CreateCollectionDialog() {
+// `compact` drops the trigger label below `sm` (icon only) for callers whose row
+// is too tight for it on mobile — the top bar.
+export function CreateCollectionDialog({
+  compact = false,
+}: {
+  compact?: boolean;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<CollectionForm>(BLANK_FORM);
@@ -75,9 +81,15 @@ export function CreateCollectionDialog() {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button
+          variant="outline"
+          size="sm"
+          aria-label={compact ? "New collection" : undefined}
+        >
           <FolderPlus />
-          New Collection
+          <span className={compact ? "hidden sm:inline" : undefined}>
+            New Collection
+          </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">

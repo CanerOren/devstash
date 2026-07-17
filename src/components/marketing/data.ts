@@ -22,9 +22,12 @@ export interface NavLink {
   href: string;
 }
 
+// Root-relative so they still resolve from the auth pages, which render the
+// same nav but have no #features / #pricing sections of their own. On the
+// homepage these still scroll to the section rather than reloading.
 export const NAV_LINKS: NavLink[] = [
-  { label: "Features", href: "#features" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Features", href: "/#features" },
+  { label: "Pricing", href: "/#pricing" },
 ];
 
 // Hero "chaos field" — the scattered sources DevStash unifies. `color` tints

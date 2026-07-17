@@ -418,7 +418,9 @@ html:has(.mk-page) {
     z-index: -1;
 }
 
-/* Pulsing transform arrow. */
+/* Pulsing transform arrow. Scale only — direction is owned by the `rotate-90`
+   utility in Hero.tsx. Tailwind v4 emits the independent `rotate` property,
+   which composes with `transform`, so rotating here too would double up. */
 .mk-arrow {
     animation: mk-arrow-pulse 2s ease-in-out infinite;
 }
@@ -470,24 +472,6 @@ html:has(.mk-page) {
     to {
         opacity: 1;
         transform: translateY(0);
-    }
-}
-
-/* Mobile: the transform arrow points down. */
-@media (max-width: 767px) {
-    .mk-arrow {
-        animation-name: mk-arrow-pulse-rot;
-    }
-    @keyframes mk-arrow-pulse-rot {
-        0%,
-        100% {
-            transform: rotate(90deg) scale(1);
-            box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.5);
-        }
-        50% {
-            transform: rotate(90deg) scale(1.08);
-            box-shadow: 0 0 0 16px rgba(99, 102, 241, 0);
-        }
     }
 }
 

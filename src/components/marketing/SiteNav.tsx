@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Brand } from "./Brand";
 import { MarketingButton } from "./MarketingButton";
 import { NAV_LINKS } from "./data";
 
-// Fixed top nav. Grows opaque + blurred once the page is scrolled. Nav links
-// hide on mobile; the ghost "Sign In" hides on the smallest screens.
+// Fixed top nav, shared by the marketing homepage and the auth pages. Grows
+// opaque + blurred once the page is scrolled. Nav links hide on mobile; the
+// ghost "Sign In" hides on the smallest screens. Whichever CTA points at the
+// current page is dropped, so /sign-in never offers a "Sign In" button.
 export function SiteNav() {
   const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -41,14 +45,18 @@ export function SiteNav() {
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2.5">
-          <MarketingButton
-            href="/sign-in"
-            variant="ghost"
-            className="max-[560px]:hidden"
-          >
-            Sign In
-          </MarketingButton>
-          <MarketingButton href="/register">Get Started</MarketingButton>
+          {pathname !== "/sign-in" && (
+            <MarketingButton
+              href="/sign-in"
+              variant="ghost"
+              className="max-[560px]:hidden"
+            >
+              Sign In
+            </MarketingButton>
+          )}
+          {pathname !== "/register" && (
+            <MarketingButton href="/register">Get Started</MarketingButton>
+          )}
         </div>
       </div>
     </header>
