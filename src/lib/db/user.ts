@@ -10,6 +10,8 @@ export interface SidebarUser {
   name: string | null;
   email: string;
   image: string | null;
+  // Drives UI gating of Pro-only affordances (e.g. the Suggest Tags button).
+  isPro: boolean;
 }
 
 // The currently authenticated user for the sidebar user area. Loads fresh
@@ -20,7 +22,7 @@ export async function getCurrentUser(): Promise<SidebarUser> {
 
   return prisma.user.findUniqueOrThrow({
     where: { id: userId },
-    select: { name: true, email: true, image: true },
+    select: { name: true, email: true, image: true, isPro: true },
   });
 }
 

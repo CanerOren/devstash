@@ -15,6 +15,7 @@ import {
 import { CodeEditor } from "@/components/items/CodeEditor";
 import { MarkdownEditor } from "@/components/items/MarkdownEditor";
 import { LanguageCombobox } from "@/components/items/LanguageCombobox";
+import { TagSuggestions } from "@/components/items/TagSuggestions";
 import type { CollectionOption } from "@/lib/db/collections";
 
 // Controlled edit-form state. Mostly raw strings; the server action normalizes
@@ -94,6 +95,19 @@ export function ItemEditForm({
     .filter((collection) => value.collectionIds.includes(collection.id))
     .map((collection) => collection.name)
     .join(", ");
+
+  // Current tags parsed from the comma string — for dedupe + filtering out
+  // suggestions the item already has.
+  const currentTags = value.tags
+    .split(",")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+
+  // Append an accepted AI suggestion to the tags field (case-insensitive dedupe).
+  const addTag = (tag: string) => {
+    if (currentTags.some((t) => t.toLowerCase() === tag.toLowerCase())) return;
+    set("tags", [...currentTags, tag].join(", "));
+  };
 
   const showContent = CONTENT_TYPES.has(typeName);
   const showLanguage = LANGUAGE_TYPES.has(typeName);
@@ -179,6 +193,14 @@ export function ItemEditForm({
           placeholder="Comma-separated, e.g. react, hooks"
         />
         <p className="text-xs text-muted-foreground">Separate tags with commas.</p>
+        {/* AI tag suggestions (Pro-only; hidden for free users). */}
+        <TagSuggestions
+          title={value.title}
+          content={value.content}
+          language={value.language}
+          existingTags={currentTags}
+          onAdd={addTag}
+        />
       </Field>
 
       <div className="space-y-2">
