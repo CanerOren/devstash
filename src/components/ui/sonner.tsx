@@ -39,6 +39,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
         } as React.CSSProperties
       }
       toastOptions={{
+        // Re-enable clicks on the toast (and its action buttons). Radix modals
+        // (Dialog/Sheet) set `pointer-events: none` on <body> while open, which
+        // the body-level toast portal inherits — making toast actions like Undo
+        // unclickable. Setting `auto` on the toast opts it back in (a descendant
+        // with `auto` is hit-testable even under an ancestor set to `none`).
+        style: { pointerEvents: "auto" },
         classNames: {
           toast: "cn-toast",
         },

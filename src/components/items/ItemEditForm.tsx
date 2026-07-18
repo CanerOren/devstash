@@ -16,6 +16,7 @@ import { CodeEditor } from "@/components/items/CodeEditor";
 import { MarkdownEditor } from "@/components/items/MarkdownEditor";
 import { LanguageCombobox } from "@/components/items/LanguageCombobox";
 import { TagSuggestions } from "@/components/items/TagSuggestions";
+import { DescriptionSuggestion } from "@/components/items/DescriptionSuggestion";
 import type { CollectionOption } from "@/lib/db/collections";
 
 // Controlled edit-form state. Mostly raw strings; the server action normalizes
@@ -127,7 +128,20 @@ export function ItemEditForm({
         />
       </Field>
 
-      <Field id="item-description" label="Description">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="item-description">Description</Label>
+          {/* AI description generator (Pro-only; hidden for free users). */}
+          <DescriptionSuggestion
+            typeName={typeName}
+            title={value.title}
+            content={value.content}
+            url={value.url}
+            language={value.language}
+            current={value.description}
+            onChange={(next) => set("description", next)}
+          />
+        </div>
         <Textarea
           id="item-description"
           value={value.description}
@@ -135,7 +149,7 @@ export function ItemEditForm({
           placeholder="Optional description"
           rows={2}
         />
-      </Field>
+      </div>
 
       {showLanguage && (
         <Field id="item-language" label="Language">

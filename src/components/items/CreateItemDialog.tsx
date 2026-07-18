@@ -32,6 +32,7 @@ import {
   type UploadedFile,
 } from "@/components/items/FileUpload";
 import { createItem } from "@/actions/items";
+import { keepModalOpenOnToastInteract } from "@/lib/modal-dismiss";
 import type { CreatableType } from "@/lib/db/items";
 import type { CollectionOption } from "@/lib/db/collections";
 import { isFileCategory } from "@/lib/file-constraints";
@@ -168,7 +169,11 @@ export function CreateItemDialog({
           </span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+      <DialogContent
+        className="max-h-[85vh] overflow-y-auto sm:max-w-lg"
+        // Don't close the dialog when the user clicks a toast action (e.g. Undo).
+        onInteractOutside={keepModalOpenOnToastInteract}
+      >
         <DialogHeader>
           <DialogTitle>New item</DialogTitle>
           <DialogDescription>Add a new item to your stash.</DialogDescription>

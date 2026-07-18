@@ -21,6 +21,7 @@ import {
 import { ItemContentBlock } from "@/components/items/ItemContentBlock";
 import { ItemActionBar } from "@/components/items/ItemActionBar";
 import { Section, DetailRow } from "@/components/items/drawer-primitives";
+import { keepModalOpenOnToastInteract } from "@/lib/modal-dismiss";
 import type { ItemDetailResponse } from "@/components/items/item-detail-response";
 import {
   Sheet,
@@ -176,7 +177,11 @@ export function ItemDrawer({
       {/* Override the Sheet's built-in `data-[side=right]:sm:max-w-sm` cap (its
           attribute selector wins on specificity) with the same modifier prefix
           so the drawer can actually grow wider. */}
-      <SheetContent className="gap-0 overflow-y-auto p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl data-[side=right]:lg:max-w-4xl data-[side=right]:xl:max-w-5xl">
+      <SheetContent
+        className="gap-0 overflow-y-auto p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-2xl data-[side=right]:lg:max-w-4xl data-[side=right]:xl:max-w-5xl"
+        // Don't close the drawer when the user clicks a toast action (e.g. Undo).
+        onInteractOutside={keepModalOpenOnToastInteract}
+      >
         {/* Header: icon chip, title, type + language badges */}
         <SheetHeader className="gap-3 border-b border-border p-6 pr-14">
           <div className="flex items-start gap-3">
