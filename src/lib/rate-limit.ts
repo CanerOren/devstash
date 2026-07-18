@@ -28,6 +28,9 @@ export const RATE_LIMITS = {
   forgotPassword: { limit: 3, window: "1 h" },
   resetPassword: { limit: 5, window: "15 m" },
   resendVerification: { limit: 3, window: "15 m" },
+  // AI features: per-user quota that protects the OpenAI bill / enforces fair
+  // use. Keyed by userId (not IP — these are authenticated).
+  aiAutoTag: { limit: 20, window: "1 h" },
 } as const satisfies Record<string, RateLimitConfig>;
 
 export interface RateLimitResult {

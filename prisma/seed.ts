@@ -360,12 +360,14 @@ async function seedDemoData() {
   const passwordHash = await bcrypt.hash(DEMO_USER.password, 12);
   const user = await prisma.user.upsert({
     where: { email: DEMO_USER.email },
-    update: { name: DEMO_USER.name, password: passwordHash, isPro: false },
+    // Pro so the demo account can exercise Pro features (AI, uploads) in dev —
+    // the project overview treats all dev users as Pro.
+    update: { name: DEMO_USER.name, password: passwordHash, isPro: true },
     create: {
       email: DEMO_USER.email,
       name: DEMO_USER.name,
       password: passwordHash,
-      isPro: false,
+      isPro: true,
       emailVerified: new Date(),
     },
   });

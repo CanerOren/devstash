@@ -2,6 +2,7 @@ import { Sidebar } from "@/components/dashboard/Sidebar";
 import { SidebarProvider } from "@/components/dashboard/sidebar-context";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { ItemDrawerProvider } from "@/components/items/item-drawer-context";
+import { ProProvider } from "@/components/ai/pro-context";
 import { EditorPreferencesProvider } from "@/components/editor/editor-preferences-context";
 import { SearchProvider } from "@/components/search/search-context";
 import { CommandPalette } from "@/components/search/CommandPalette";
@@ -46,6 +47,7 @@ export async function AppShell({
 
   return (
     <SidebarProvider>
+      <ProProvider isPro={user.isPro}>
       <EditorPreferencesProvider initial={editorPreferences}>
         <SearchProvider data={searchData}>
         {/* Pin the shell to the viewport so only <main> scrolls — the TopBar and
@@ -75,6 +77,7 @@ export async function AppShell({
         <Toaster />
         </SearchProvider>
       </EditorPreferencesProvider>
+      </ProProvider>
     </SidebarProvider>
   );
 }
