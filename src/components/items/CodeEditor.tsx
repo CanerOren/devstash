@@ -171,6 +171,13 @@ interface CodeEditorProps {
   onChange?: (value: string) => void;
   readOnly?: boolean;
   className?: string;
+  // Extra controls rendered in the header, between the language label and the
+  // Copy button (e.g. the Explain button + Code/Explain tabs in the drawer read
+  // view). Generic slot so this stays a plain editor with no AI dependency.
+  headerActions?: React.ReactNode;
+  // When non-null, rendered in place of the code body (same container). Monaco
+  // stays mounted (just hidden) so toggling back doesn't remount or re-measure.
+  bodyOverlay?: React.ReactNode;
 }
 
 // A Monaco-based code editor with a macOS-style window header (traffic-light
@@ -182,6 +189,8 @@ export function CodeEditor({
   onChange,
   readOnly = false,
   className,
+  headerActions,
+  bodyOverlay,
 }: CodeEditorProps) {
   const { preferences } = useEditorPreferences();
   const [height, setHeight] = useState(MIN_HEIGHT);
@@ -258,6 +267,7 @@ export function CodeEditor({
           <span className="text-xs text-muted-foreground">
             {languageLabel(language)}
           </span>
+          {headerActions}
           <button
             type="button"
             onClick={handleCopy}
@@ -276,21 +286,26 @@ export function CodeEditor({
         </div>
       </div>
 
-      <Editor
-        value={value}
-        language={toMonacoLanguage(language)}
-        theme={MONACO_THEME_NAMES[preferences.theme]}
-        height={height}
-        beforeMount={defineThemes}
-        onMount={handleMount}
-        onChange={(next) => onChange?.(next ?? "")}
-        options={options}
-        loading={
-          <div className="flex h-12 items-center px-4 text-xs text-muted-foreground">
-            Loading editor…
-          </div>
-        }
-      />
+      {/* Keep Monaco mounted (just hidden) when an overlay is shown, so toggling
+          back to the code doesn't remount the editor or re-measure its height. */}
+      <div style={bodyOverlay ? { display: "none" } : undefined}>
+        <Editor
+          value={value}
+          language={toMonacoLanguage(language)}
+          theme={MONACO_THEME_NAMES[preferences.theme]}
+          height={height}
+          beforeMount={defineThemes}
+          onMount={handleMount}
+          onChange={(next) => onChange?.(next ?? "")}
+          options={options}
+          loading={
+            <div className="flex h-12 items-center px-4 text-xs text-muted-foreground">
+              Loading editor…
+            </div>
+          }
+        />
+      </div>
+      {bodyOverlay}
     </div>
   );
 }

@@ -2,7 +2,7 @@ import { Download, ExternalLink, FileText } from "lucide-react";
 
 import { formatFileSize } from "@/lib/file-constraints";
 import { Button } from "@/components/ui/button";
-import { CodeEditor } from "@/components/items/CodeEditor";
+import { CodeExplainViewer } from "@/components/items/CodeExplainViewer";
 import { MarkdownEditor } from "@/components/items/MarkdownEditor";
 import type { ItemDetailResponse } from "@/components/items/item-detail-response";
 
@@ -78,8 +78,13 @@ export function ItemContentBlock({
 
   if (detail.content) {
     if (CODE_TYPES.has(detail.type.name)) {
+      // Read view for code items: the code viewer plus an AI "Explain" button.
+      // (The edit form uses the plain CodeEditor — explain is drawer-view only.)
       return (
-        <CodeEditor value={detail.content} language={detail.language} readOnly />
+        <CodeExplainViewer
+          content={detail.content}
+          language={detail.language}
+        />
       );
     }
     if (MARKDOWN_TYPES.has(detail.type.name)) {
