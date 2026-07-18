@@ -33,6 +33,7 @@ export const RATE_LIMITS = {
   aiAutoTag: { limit: 20, window: "1 h" },
   aiDescription: { limit: 20, window: "1 h" },
   aiExplain: { limit: 20, window: "1 h" },
+  aiOptimize: { limit: 20, window: "1 h" },
 } as const satisfies Record<string, RateLimitConfig>;
 
 export interface RateLimitResult {

@@ -8,6 +8,7 @@ import { isAIConfigured } from "@/lib/ai/openai";
 import { generateTagSuggestions } from "@/lib/ai/auto-tags";
 import { generateItemDescription } from "@/lib/ai/description";
 import { generateCodeExplanation } from "@/lib/ai/explain";
+import { generateOptimizedPrompt } from "@/lib/ai/optimize";
 
 // Server actions for AI features. They follow the project's
 // { success, data?, error? } shape. Every action runs the same preamble:
@@ -230,6 +231,67 @@ export async function explainCode(
     return {
       success: false,
       error: "Couldn't explain this code right now. Please try again.",
+    };
+  }
+}
+
+const optimizeSchema = z.object({
+  // There must be a prompt to optimize (all-whitespace is rejected). The trimmed
+  // value is what we send.
+  content: z.string().trim().min(1, "There's no prompt to optimize."),
+});
+
+export interface OptimizePromptInput {
+  content: string;
+}
+
+export interface OptimizePromptResult {
+  success: boolean;
+  data?: { prompt: string };
+  error?: string;
+}
+
+// Refine a prompt item's content into a clearer, more effective version. Pro-only
+// and rate-limited. The result is not persisted here — the client shows it for
+// review and only saves if the user accepts. Returns an empty string (still
+// success) when the model has nothing usable, so the UI can show a friendly hint
+// rather than an error.
+export async function optimizePrompt(
+  input: OptimizePromptInput,
+): Promise<OptimizePromptResult> {
+  try {
+    const parsed = optimizeSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+      };
+    }
+
+    const gate = await requireProUser();
+    if ("error" in gate) {
+      return { success: false, error: gate.error };
+    }
+
+    const limit = await checkRateLimit("aiOptimize", gate.userId);
+    if (!limit.success) {
+      return {
+        success: false,
+        error: "You've hit your AI usage limit. Please try again later.",
+      };
+    }
+
+    if (!isAIConfigured()) {
+      return { success: false, error: "AI features are not configured." };
+    }
+
+    const prompt = await generateOptimizedPrompt(parsed.data);
+    return { success: true, data: { prompt } };
+  } catch (error) {
+    console.error("[optimizePrompt] failed:", error);
+    return {
+      success: false,
+      error: "Couldn't optimize this prompt right now. Please try again.",
     };
   }
 }

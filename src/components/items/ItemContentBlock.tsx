@@ -4,6 +4,7 @@ import { formatFileSize } from "@/lib/file-constraints";
 import { Button } from "@/components/ui/button";
 import { CodeExplainViewer } from "@/components/items/CodeExplainViewer";
 import { MarkdownEditor } from "@/components/items/MarkdownEditor";
+import { PromptOptimizeViewer } from "@/components/items/PromptOptimizeViewer";
 import type { ItemDetailResponse } from "@/components/items/item-detail-response";
 
 // Code types get the Monaco editor for their content; markdown types (note,
@@ -16,8 +17,11 @@ const MARKDOWN_TYPES = new Set(["note", "prompt"]);
 // plain block for other text, the link for URL items, and file info for FILE.
 export function ItemContentBlock({
   detail,
+  onOptimizeAccept,
 }: {
   detail: ItemDetailResponse | null;
+  // Persists an accepted optimized prompt (prompt items only). Owned by the drawer.
+  onOptimizeAccept?: (content: string) => Promise<boolean>;
 }) {
   if (!detail) return null;
 
@@ -88,6 +92,17 @@ export function ItemContentBlock({
       );
     }
     if (MARKDOWN_TYPES.has(detail.type.name)) {
+      // Prompt items add an AI "Optimize" button in the header (drawer-view
+      // only); notes keep the plain Markdown preview.
+      if (detail.type.name === "prompt") {
+        return (
+          <PromptOptimizeViewer
+            key={detail.id}
+            content={detail.content}
+            onAccept={onOptimizeAccept}
+          />
+        );
+      }
       return <MarkdownEditor value={detail.content} readOnly />;
     }
     return (

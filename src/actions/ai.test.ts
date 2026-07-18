@@ -10,6 +10,7 @@ const {
   generateTagSuggestions,
   generateItemDescription,
   generateCodeExplanation,
+  generateOptimizedPrompt,
 } = vi.hoisted(() => ({
   requireProUser: vi.fn(),
   checkRateLimit: vi.fn(),
@@ -17,6 +18,7 @@ const {
   generateTagSuggestions: vi.fn(),
   generateItemDescription: vi.fn(),
   generateCodeExplanation: vi.fn(),
+  generateOptimizedPrompt: vi.fn(),
 }));
 
 vi.mock("@/lib/ai/pro", () => ({ requireProUser }));
@@ -25,8 +27,14 @@ vi.mock("@/lib/ai/openai", () => ({ isAIConfigured }));
 vi.mock("@/lib/ai/auto-tags", () => ({ generateTagSuggestions }));
 vi.mock("@/lib/ai/description", () => ({ generateItemDescription }));
 vi.mock("@/lib/ai/explain", () => ({ generateCodeExplanation }));
+vi.mock("@/lib/ai/optimize", () => ({ generateOptimizedPrompt }));
 
-import { generateAutoTags, generateDescription, explainCode } from "@/actions/ai";
+import {
+  generateAutoTags,
+  generateDescription,
+  explainCode,
+  optimizePrompt,
+} from "@/actions/ai";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -37,6 +45,7 @@ beforeEach(() => {
   generateTagSuggestions.mockResolvedValue(["react", "hooks"]);
   generateItemDescription.mockResolvedValue("A hook that debounces a value.");
   generateCodeExplanation.mockResolvedValue("This code debounces a value.");
+  generateOptimizedPrompt.mockResolvedValue("An improved, clearer prompt.");
 });
 
 const input = { title: "useDebounce hook", content: "export function useDebounce" };
@@ -351,6 +360,89 @@ describe("explainCode", () => {
     generateCodeExplanation.mockRejectedValue(new Error("openai down"));
 
     const result = await explainCode(explainInput);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+});
+
+const optimizeInput = { content: "write me a function that sorts an array" };
+
+describe("optimizePrompt", () => {
+  it("rejects empty content without gating or calling the model", async () => {
+    const result = await optimizePrompt({ content: "   " });
+
+    expect(result.success).toBe(false);
+    expect(requireProUser).not.toHaveBeenCalled();
+    expect(generateOptimizedPrompt).not.toHaveBeenCalled();
+  });
+
+  it("returns the Pro-gate error and never calls the model", async () => {
+    requireProUser.mockResolvedValue({
+      error: "AI features are available on the Pro plan.",
+    });
+
+    const result = await optimizePrompt(optimizeInput);
+
+    expect(result).toEqual({
+      success: false,
+      error: "AI features are available on the Pro plan.",
+    });
+    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(generateOptimizedPrompt).not.toHaveBeenCalled();
+  });
+
+  it("returns a rate-limit error when the quota is exceeded", async () => {
+    checkRateLimit.mockResolvedValue({ success: false, remaining: 0, reset: 0 });
+
+    const result = await optimizePrompt(optimizeInput);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/limit/i);
+    expect(generateOptimizedPrompt).not.toHaveBeenCalled();
+  });
+
+  it("keys the rate limit by the userId from the gate", async () => {
+    await optimizePrompt(optimizeInput);
+    expect(checkRateLimit).toHaveBeenCalledWith("aiOptimize", "user_1");
+  });
+
+  it("errors when AI isn't configured", async () => {
+    isAIConfigured.mockReturnValue(false);
+
+    const result = await optimizePrompt(optimizeInput);
+
+    expect(result.success).toBe(false);
+    expect(generateOptimizedPrompt).not.toHaveBeenCalled();
+  });
+
+  it("passes the trimmed content to the model", async () => {
+    await optimizePrompt({ content: "  refine me  " });
+
+    expect(generateOptimizedPrompt).toHaveBeenCalledWith({ content: "refine me" });
+  });
+
+  it("returns the model's optimized prompt on success", async () => {
+    const result = await optimizePrompt(optimizeInput);
+
+    expect(result).toEqual({
+      success: true,
+      data: { prompt: "An improved, clearer prompt." },
+    });
+  });
+
+  it("succeeds with an empty prompt when the model has nothing", async () => {
+    generateOptimizedPrompt.mockResolvedValue("");
+
+    const result = await optimizePrompt(optimizeInput);
+
+    expect(result).toEqual({ success: true, data: { prompt: "" } });
+  });
+
+  it("returns a generic error when the model call throws", async () => {
+    generateOptimizedPrompt.mockRejectedValue(new Error("openai down"));
+
+    const result = await optimizePrompt(optimizeInput);
 
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
