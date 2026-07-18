@@ -31,6 +31,7 @@ export const RATE_LIMITS = {
   // AI features: per-user quota that protects the OpenAI bill / enforces fair
   // use. Keyed by userId (not IP — these are authenticated).
   aiAutoTag: { limit: 20, window: "1 h" },
+  aiDescription: { limit: 20, window: "1 h" },
 } as const satisfies Record<string, RateLimitConfig>;
 
 export interface RateLimitResult {

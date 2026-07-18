@@ -6,6 +6,7 @@ import { requireProUser } from "@/lib/ai/pro";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { isAIConfigured } from "@/lib/ai/openai";
 import { generateTagSuggestions } from "@/lib/ai/auto-tags";
+import { generateItemDescription } from "@/lib/ai/description";
 
 // Server actions for AI features. They follow the project's
 // { success, data?, error? } shape. Every action runs the same preamble:
@@ -77,6 +78,91 @@ export async function generateAutoTags(
     return {
       success: false,
       error: "Couldn't generate tags right now. Please try again.",
+    };
+  }
+}
+
+const descriptionSchema = z.object({
+  // Type/content/url/language are all optional — a description works off
+  // whatever is available (a file item may have only a title). Coerce missing
+  // values to "".
+  typeName: z.preprocess((v) => v ?? "", z.string()),
+  title: z.string().trim().min(1, "Add a title first"),
+  content: z.preprocess((v) => v ?? "", z.string()),
+  url: z.preprocess((v) => v ?? "", z.string()),
+  language: z.preprocess((v) => v ?? "", z.string()),
+});
+
+// Which fields actually apply to a given type. The forms keep stale field values
+// in state after a type switch (e.g. leftover code content when switching a
+// snippet to a link), so — like the createItem action — we drop fields that
+// don't apply to the chosen type before summarizing, or the model conflates them.
+const DESC_CONTENT_TYPES = new Set(["snippet", "prompt", "command", "note"]);
+const DESC_LANGUAGE_TYPES = new Set(["snippet", "command"]);
+
+export interface GenerateDescriptionInput {
+  typeName?: string | null;
+  title: string;
+  content?: string | null;
+  url?: string | null;
+  language?: string | null;
+}
+
+export interface GenerateDescriptionResult {
+  success: boolean;
+  data?: { description: string };
+  error?: string;
+}
+
+// Generate a concise 1–2 sentence description for an item from its current
+// (unsaved) form state. Pro-only and rate-limited. Returns an empty string
+// (still success) when the model has nothing usable, so the UI can show a
+// friendly "couldn't generate" hint rather than an error.
+export async function generateDescription(
+  input: GenerateDescriptionInput,
+): Promise<GenerateDescriptionResult> {
+  try {
+    const parsed = descriptionSchema.safeParse(input);
+    if (!parsed.success) {
+      return {
+        success: false,
+        error: parsed.error.issues[0]?.message ?? "Invalid input",
+      };
+    }
+
+    const gate = await requireProUser();
+    if ("error" in gate) {
+      return { success: false, error: gate.error };
+    }
+
+    const limit = await checkRateLimit("aiDescription", gate.userId);
+    if (!limit.success) {
+      return {
+        success: false,
+        error: "You've hit your AI usage limit. Please try again later.",
+      };
+    }
+
+    if (!isAIConfigured()) {
+      return { success: false, error: "AI features are not configured." };
+    }
+
+    // Only summarize the fields relevant to this type (drop stale content/url/
+    // language a type switch may have left behind).
+    const { typeName, title, content, url, language } = parsed.data;
+    const description = await generateItemDescription({
+      typeName,
+      title,
+      content: DESC_CONTENT_TYPES.has(typeName) ? content : "",
+      url: typeName === "link" ? url : "",
+      language: DESC_LANGUAGE_TYPES.has(typeName) ? language : "",
+    });
+    return { success: true, data: { description } };
+  } catch (error) {
+    console.error("[generateDescription] failed:", error);
+    return {
+      success: false,
+      error: "Couldn't generate a description right now. Please try again.",
     };
   }
 }
