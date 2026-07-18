@@ -9,12 +9,14 @@ const {
   isAIConfigured,
   generateTagSuggestions,
   generateItemDescription,
+  generateCodeExplanation,
 } = vi.hoisted(() => ({
   requireProUser: vi.fn(),
   checkRateLimit: vi.fn(),
   isAIConfigured: vi.fn(),
   generateTagSuggestions: vi.fn(),
   generateItemDescription: vi.fn(),
+  generateCodeExplanation: vi.fn(),
 }));
 
 vi.mock("@/lib/ai/pro", () => ({ requireProUser }));
@@ -22,8 +24,9 @@ vi.mock("@/lib/rate-limit", () => ({ checkRateLimit }));
 vi.mock("@/lib/ai/openai", () => ({ isAIConfigured }));
 vi.mock("@/lib/ai/auto-tags", () => ({ generateTagSuggestions }));
 vi.mock("@/lib/ai/description", () => ({ generateItemDescription }));
+vi.mock("@/lib/ai/explain", () => ({ generateCodeExplanation }));
 
-import { generateAutoTags, generateDescription } from "@/actions/ai";
+import { generateAutoTags, generateDescription, explainCode } from "@/actions/ai";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -33,6 +36,7 @@ beforeEach(() => {
   isAIConfigured.mockReturnValue(true);
   generateTagSuggestions.mockResolvedValue(["react", "hooks"]);
   generateItemDescription.mockResolvedValue("A hook that debounces a value.");
+  generateCodeExplanation.mockResolvedValue("This code debounces a value.");
 });
 
 const input = { title: "useDebounce hook", content: "export function useDebounce" };
@@ -249,6 +253,104 @@ describe("generateDescription", () => {
     generateItemDescription.mockRejectedValue(new Error("openai down"));
 
     const result = await generateDescription(descInput);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+});
+
+const explainInput = {
+  content: "export function useDebounce() {}",
+  language: "typescript",
+};
+
+describe("explainCode", () => {
+  it("rejects empty content without gating or calling the model", async () => {
+    const result = await explainCode({ content: "   " });
+
+    expect(result.success).toBe(false);
+    expect(requireProUser).not.toHaveBeenCalled();
+    expect(generateCodeExplanation).not.toHaveBeenCalled();
+  });
+
+  it("returns the Pro-gate error and never calls the model", async () => {
+    requireProUser.mockResolvedValue({
+      error: "AI features are available on the Pro plan.",
+    });
+
+    const result = await explainCode(explainInput);
+
+    expect(result).toEqual({
+      success: false,
+      error: "AI features are available on the Pro plan.",
+    });
+    expect(checkRateLimit).not.toHaveBeenCalled();
+    expect(generateCodeExplanation).not.toHaveBeenCalled();
+  });
+
+  it("returns a rate-limit error when the quota is exceeded", async () => {
+    checkRateLimit.mockResolvedValue({ success: false, remaining: 0, reset: 0 });
+
+    const result = await explainCode(explainInput);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/limit/i);
+    expect(generateCodeExplanation).not.toHaveBeenCalled();
+  });
+
+  it("keys the rate limit by the userId from the gate", async () => {
+    await explainCode(explainInput);
+    expect(checkRateLimit).toHaveBeenCalledWith("aiExplain", "user_1");
+  });
+
+  it("errors when AI isn't configured", async () => {
+    isAIConfigured.mockReturnValue(false);
+
+    const result = await explainCode(explainInput);
+
+    expect(result.success).toBe(false);
+    expect(generateCodeExplanation).not.toHaveBeenCalled();
+  });
+
+  it("passes the trimmed content + language to the model", async () => {
+    await explainCode({ content: "\n  const x = 1;\n", language: "typescript" });
+
+    expect(generateCodeExplanation).toHaveBeenCalledWith({
+      content: "const x = 1;",
+      language: "typescript",
+    });
+  });
+
+  it("coerces a missing language to an empty string", async () => {
+    await explainCode({ content: "ls -la" });
+
+    expect(generateCodeExplanation).toHaveBeenCalledWith({
+      content: "ls -la",
+      language: "",
+    });
+  });
+
+  it("returns the model's explanation on success", async () => {
+    const result = await explainCode(explainInput);
+
+    expect(result).toEqual({
+      success: true,
+      data: { explanation: "This code debounces a value." },
+    });
+  });
+
+  it("succeeds with an empty explanation when the model has nothing", async () => {
+    generateCodeExplanation.mockResolvedValue("");
+
+    const result = await explainCode(explainInput);
+
+    expect(result).toEqual({ success: true, data: { explanation: "" } });
+  });
+
+  it("returns a generic error when the model call throws", async () => {
+    generateCodeExplanation.mockRejectedValue(new Error("openai down"));
+
+    const result = await explainCode(explainInput);
 
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();
