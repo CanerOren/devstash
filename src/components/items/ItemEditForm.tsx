@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CodeEditor } from "@/components/items/CodeEditor";
 import { MarkdownEditor } from "@/components/items/MarkdownEditor";
+import { LanguageCombobox } from "@/components/items/LanguageCombobox";
 import type { CollectionOption } from "@/lib/db/collections";
 
 // Controlled edit-form state. Mostly raw strings; the server action normalizes
@@ -122,6 +123,16 @@ export function ItemEditForm({
         />
       </Field>
 
+      {showLanguage && (
+        <Field id="item-language" label="Language">
+          <LanguageCombobox
+            id="item-language"
+            value={value.language}
+            onChange={(next) => set("language", next)}
+          />
+        </Field>
+      )}
+
       {showContent && (
         <Field id="item-content" label="Content">
           {useCodeEditor ? (
@@ -145,17 +156,6 @@ export function ItemEditForm({
               className="font-mono text-xs leading-relaxed"
             />
           )}
-        </Field>
-      )}
-
-      {showLanguage && (
-        <Field id="item-language" label="Language">
-          <Input
-            id="item-language"
-            value={value.language}
-            onChange={(e) => set("language", e.target.value)}
-            placeholder="e.g. typescript"
-          />
         </Field>
       )}
 
