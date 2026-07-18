@@ -146,6 +146,58 @@ export function ItemDrawer({
     toast.success("Item updated");
   }
 
+  // Persists a new content value for the current item, keeping the other editable
+  // fields as they are. Reused by the prompt-optimizer accept + undo. Returns
+  // whether it succeeded (toasts on failure).
+  async function persistContent(newContent: string): Promise<boolean> {
+    if (!detail) return false;
+
+    const result = await updateItem(detail.id, {
+      title: detail.title,
+      description: detail.description,
+      content: newContent,
+      url: detail.url,
+      language: detail.language,
+      tags: detail.tags,
+      collectionIds: detail.collections.map((collection) => collection.id),
+    });
+
+    if (!result.success || !result.data) {
+      toast.error(result.error ?? "Failed to update prompt");
+      return false;
+    }
+
+    const updated = result.data;
+    onUpdated({
+      ...updated,
+      createdAt: new Date(updated.createdAt).toISOString(),
+      updatedAt: new Date(updated.updatedAt).toISOString(),
+    });
+    router.refresh(); // reflect the change in the underlying card list
+    return true;
+  }
+
+  // Accept an optimized prompt: persist it as the item's content, then toast with
+  // an Undo that restores the original. Returns success so the viewer can reset.
+  async function handleOptimizeAccept(optimized: string): Promise<boolean> {
+    if (!detail) return false;
+    const original = detail.content ?? "";
+
+    const ok = await persistContent(optimized);
+    if (!ok) return false;
+
+    toast.success("Prompt optimized", {
+      duration: 10000,
+      action: {
+        label: "Undo",
+        onClick: () => {
+          void persistContent(original);
+        },
+      },
+    });
+    return true;
+  }
+
   async function handleDelete() {
     if (!detail) return;
 
@@ -280,7 +332,10 @@ export function ItemDrawer({
                 {loading && !detail ? (
                   <Skeleton className="h-32 w-full rounded-lg" />
                 ) : (
-                  <ItemContentBlock detail={detail} />
+                  <ItemContentBlock
+                    detail={detail}
+                    onOptimizeAccept={handleOptimizeAccept}
+                  />
                 )}
               </Section>
 

@@ -21,6 +21,12 @@ interface MarkdownEditorProps {
   onChange?: (value: string) => void;
   readOnly?: boolean;
   className?: string;
+  // Extra controls rendered in the header, before the Copy button (e.g. the
+  // Optimize button + Original/Optimized tabs in the prompt drawer read view).
+  // Generic slot so this stays a plain editor with no AI dependency.
+  headerActions?: React.ReactNode;
+  // When non-null, rendered in place of the normal body (same container).
+  bodyOverlay?: React.ReactNode;
 }
 
 // A Markdown editor with Write/Preview tabs and a copy button, styled to match
@@ -33,6 +39,8 @@ export function MarkdownEditor({
   onChange,
   readOnly = false,
   className,
+  headerActions,
+  bodyOverlay,
 }: MarkdownEditorProps) {
   const [tab, setTab] = useState<Tab>(readOnly ? "preview" : "write");
   const [copied, setCopied] = useState(false);
@@ -60,7 +68,7 @@ export function MarkdownEditor({
     }
   }
 
-  const showWrite = !readOnly && tab === "write";
+  const showWrite = !readOnly && !bodyOverlay && tab === "write";
 
   return (
     <div
@@ -89,21 +97,30 @@ export function MarkdownEditor({
             </TabButton>
           </div>
         )}
-        <button
-          type="button"
-          onClick={handleCopy}
-          disabled={!value}
-          title={copied ? "Copied" : "Copy"}
-          aria-label={copied ? "Copied" : "Copy"}
-          className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
-        >
-          {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-          {copied ? "Copied" : "Copy"}
-        </button>
+        <div className="ml-auto flex items-center gap-1">
+          {headerActions}
+          <button
+            type="button"
+            onClick={handleCopy}
+            disabled={!value}
+            title={copied ? "Copied" : "Copy"}
+            aria-label={copied ? "Copied" : "Copy"}
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+          >
+            {copied ? (
+              <Check className="size-3.5" />
+            ) : (
+              <Copy className="size-3.5" />
+            )}
+            {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
       </div>
 
       {/* Body */}
-      {showWrite ? (
+      {bodyOverlay ? (
+        bodyOverlay
+      ) : showWrite ? (
         <textarea
           ref={textareaRef}
           value={value}
